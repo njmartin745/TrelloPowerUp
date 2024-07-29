@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+</head>
+<body>
+  <div class="container">
+    <h3>Set Workload Details</h3>
+    <form id="workloadForm">
+      <div class="form-group">
+        <label for="workloadDuration">Workload Duration (days)</label>
+        <input type="number" class="form-control" id="workloadDuration" required>
+      </div>
+      <div class="form-group">
+        <label for="workloadStartDate">Start Date</label>
+        <input type="date" class="form-control" id="workloadStartDate" required>
+      </div>
+      <div class="form-group">
+        <label for="workloadEndDate">End Date</label>
+        <input type="date" class="form-control" id="workloadEndDate" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+    <div class="random-image">
+      <img id="randomImage" src="" alt="Random Image" class="img-fluid mt-3"/>
+    </div>
+  </div>
+  <script>
+    const t = TrelloPowerUp.iframe();
+
+    document.getElementById('workloadForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const duration = document.getElementById('workloadDuration').value;
+      const startDate = document.getElementById('workloadStartDate').value;
+      const endDate = document.getElementById('workloadEndDate').value;
+
+      t.set('card', 'shared', 'workload', {
+        duration: duration,
+        startDate: startDate,
+        endDate: endDate
+      }).then(function() {
+        t.closePopup();
+      });
+    });
+
+    t.render(function() {
+      return t.get('card', 'shared', 'workload').then(function(workload) {
+        if (workload) {
+          document.getElementById('workloadDuration').value = workload.duration;
+          document.getElementById('workloadStartDate').value = workload.startDate;
+          document.getElementById('workloadEndDate').value = workload.endDate;
+        }
+      });
+    });
+
+    // Fetch a random image from an image API
+    fetch('https://picsum.photos/200/300')
+      .then(response => {
+        document.getElementById('randomImage').src = response.url;
+      })
+      .catch(error => console.error('Error fetching the random image:', error));
+  </script>
+</body>
+</html>
