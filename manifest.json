@@ -1,0 +1,19 @@
+{
+    "name": "Capacity Tracker",
+    "details": "A Power-Up to track and manage team capacity",
+    "icon": {
+      "url": "https://https://capacitytracker.netlify.app.app/images/icon.png"
+    },
+    "author": "Nicolas Martin",
+    "capabilities": [
+      "board-buttons",
+      "card-buttons",
+      "card-badges",
+      "on-enable"
+    ],
+    "connectors": {
+      "iframe": {
+        "url": "./index.html"
+      }
+    }
+  }
