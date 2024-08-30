@@ -41,7 +41,7 @@ var CapacityTracker = window.CapacityTracker || {};
   };
 
   module.initialize = function(){
-    return {
+    window.TrelloPowerUp.initialize({
       'board-buttons': function(t, options){
         return [{
           icon: {
@@ -61,8 +61,18 @@ var CapacityTracker = window.CapacityTracker || {};
       },
       'card-badges': function(t, card) {
         return getBadges(t);
+      },
+      'on-enable': function(t, options) {
+        // Code to run when the Power-Up is enabled
+        return t.set('board', 'shared', 'capacityTrackerEnabled', true)
+          .then(function() {
+            return t.alert({
+              message: 'Capacity Tracker Power-Up enabled successfully!',
+              duration: 3
+            });
+          });
       }
-    };
+    });
   };
 
 })(CapacityTracker);
