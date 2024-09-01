@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    #report-container {
+      padding: 20px;
+    }
+    canvas {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="report-container">
+    <h2>Team Capacity Report</h2>
+    <canvas id="capacityChart"></canvas>
+  </div>
+  <script>
+    var t = TrelloPowerUp.iframe();
+
+    t.render(function() {
+      return Promise.all([
+        t.board('members'),
+        t.cards('all')
+      ])
+      .then(function([board, cards]) {
+        var memberEfforts = {};
+        var totalCapacity = board.members.length * 40; // Assuming 40 hours per week per member
+
+        // Calculate total effort for each member
+        cards.forEach(function(card) {
+          if (card.memberEfforts) {
+            Object.entries(card.memberEfforts).forEach(([memberId, effort]) => {
+              memberEfforts[memberId] = (memberEfforts[memberId] || 0) + effort;
+            });
+          }
+        });
+
+        // Prepare data for chart
+        var labels = board.members.map(member => member.fullName);
+        var data = board.members.map(member => memberEfforts[member.id] || 0);
+        var remainingCapacity = board.members.map(member => 40 - (memberEfforts[member.id] || 0));
+
+        // Create chart
+        var ctx = document.getElementById('capacityChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Assigned Effort',
+              data: data,
+              backgroundColor: 'rgba(54, 162, 235, 0.8)'
+            }, {
+              label: 'Remaining Capacity',
+              data: remainingCapacity,
+              backgroundColor: 'rgba(75, 192, 192, 0.8)'
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { stacked: true },
+              y: { 
+                stacked: true,
+                max: 40
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Team Capacity (Hours per Week)'
+              }
+            }
+          }
+        });
+
+        // Display total capacity utilization
+        var totalEffort = Object.values(memberEfforts).reduce((a, b) => a + b, 0);
+        var capacityUtilization = (totalEffort / totalCapacity) * 100;
+        var utilizationElement = document.createElement('p');
+        utilizationElement.textContent = `Total Capacity Utilization: ${capacityUtilization.toFixed(2)}%`;
+        document.getElementById('report-container').appendChild(utilizationElement);
+      });
+    });
+  </script>
+</body>
+</html>

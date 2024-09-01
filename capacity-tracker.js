@@ -114,9 +114,64 @@ var CapacityTracker = {
     });
   },
 
-  // Utility functions
-  saveEffort: function(t, effort) {
-    return t.set('card', 'shared', 'effort', effort);
+  calculateMemberCapacity: function(t, memberId) {
+    return Promise.all([
+      t.board('members'),
+      t.cards('all')
+    ])
+    .then(function([board, cards]) {
+      var member = board.members.find(m => m.id === memberId);
+      if (!member) {
+        throw new Error('Member not found');
+      }
+
+      var workload = 0;
+      cards.forEach(function(card) {
+        if (card.memberEfforts && card.memberEfforts[memberId]) {
+          workload += card.memberEfforts[memberId];
+        }
+      });
+
+      return {
+        id: member.id,
+        name: member.fullName,
+        workload: workload,
+        capacity: CapacityTracker.HOURS_PER_WEEK,
+        availableCapacity: Math.max(0, CapacityTracker.HOURS_PER_WEEK - workload)
+      };
+    });
+  },
+
+  calculateMemberWorkload: function(t) {
+    return Promise.all([
+      t.board('members'),
+      t.cards('all')
+    ])
+    .then(function([board, cards]) {
+      var memberWorkloads = {};
+      board.members.forEach(function(member) {
+        memberWorkloads[member.id] = {
+          id: member.id,
+          name: member.fullName,
+          workload: 0,
+          capacity: CapacityTracker.HOURS_PER_WEEK,
+          availableCapacity: CapacityTracker.HOURS_PER_WEEK
+        };
+      });
+
+      cards.forEach(function(card) {
+        if (card.memberEfforts) {
+          Object.entries(card.memberEfforts).forEach(([memberId, effort]) => {
+            if (memberWorkloads[memberId]) {
+              memberWorkloads[memberId].workload += effort;
+              memberWorkloads[memberId].availableCapacity = Math.max(0, CapacityTracker.HOURS_PER_WEEK - memberWorkloads[memberId].workload);
+            }
+          });
+        }
+      });
+
+      return Object.values(memberWorkloads);
+    });
   },
 
   getWeekNumber: function(date) {
@@ -125,14 +180,6 @@ var CapacityTracker = {
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
     return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-  },
-
-  calculateMemberCapacity: function(t, memberId) {
-    // This is a placeholder. In a real implementation, we would:
-    // 1. Get all cards assigned to this member
-    // 2. Sum up the effort for each card
-    // 3. Compare to the weekly threshold (32 hours)
-    return Promise.resolve(0); // Placeholder
   },
 
   findAvailableMember: function(members, cards, effort) {
