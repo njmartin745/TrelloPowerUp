@@ -56,11 +56,11 @@ var CapacityTracker = {
   },
 
   getCardBadges: function(t, card) {
-    return t.get('card', 'shared', 'effort')
-    .then(function(effort) {
-      if (effort) {
+    return t.get('card', 'shared', 'totalEffort')
+    .then(function(totalEffort) {
+      if (totalEffort) {
         return [{
-          text: effort + ' hours',
+          text: totalEffort + ' hours',
           color: 'blue'
         }];
       } else {
@@ -70,17 +70,29 @@ var CapacityTracker = {
   },
 
   getCardDetailBadges: function(t, card) {
-    return t.get('card', 'shared', 'effort')
-    .then(function(effort) {
-      if (effort) {
-        return [{
-          title: 'Effort',
-          text: effort + ' hours',
+    return Promise.all([
+      t.get('card', 'shared', 'totalEffort'),
+      t.get('card', 'shared', 'memberEfforts')
+    ])
+    .then(function([totalEffort, memberEfforts]) {
+      var badges = [];
+      if (totalEffort) {
+        badges.push({
+          title: 'Total Effort',
+          text: totalEffort + ' hours',
           color: 'blue'
-        }];
-      } else {
-        return [];
+        });
       }
+      if (memberEfforts) {
+        Object.entries(memberEfforts).forEach(([memberId, effort]) => {
+          badges.push({
+            title: 'Member Effort',
+            text: `${effort} hours (${memberId})`,
+            color: 'green'
+          });
+        });
+      }
+      return badges;
     });
   },
 

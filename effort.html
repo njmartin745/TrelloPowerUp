@@ -3,29 +3,60 @@
 <head>
   <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <style>
+    .member-effort {
+      margin-bottom: 10px;
+    }
+  </style>
 </head>
 <body>
   <form id="effort-form">
-    <label for="effort-input">Assign effort (in hours):</label>
-    <input type="number" id="effort-input" min="0" step="0.5" required>
+    <div id="member-efforts"></div>
     <button type="submit" class="mod-primary">Save</button>
   </form>
   <script>
     var t = TrelloPowerUp.iframe();
 
-    // Load any existing effort data
-    t.get('card', 'shared', 'effort')
-    .then(function(effort) {
-      if (effort) {
-        document.getElementById('effort-input').value = effort;
+    // Load card members and existing effort data
+    Promise.all([
+      t.card('members'),
+      t.get('card', 'shared', 'memberEfforts')
+    ])
+    .then(function([card, memberEfforts]) {
+      var container = document.getElementById('member-efforts');
+      memberEfforts = memberEfforts || {};
+
+      card.members.forEach(function(member) {
+        var div = document.createElement('div');
+        div.className = 'member-effort';
+        div.innerHTML = `
+          <label for="effort-${member.id}">${member.fullName}:</label>
+          <input type="number" id="effort-${member.id}" name="effort-${member.id}" 
+                 min="0" step="0.5" value="${memberEfforts[member.id] || 0}">
+        `;
+        container.appendChild(div);
+      });
+
+      // If there are no members, show a message
+      if (card.members.length === 0) {
+        container.innerHTML = '<p>No members assigned to this card. Assign members to allocate effort.</p>';
       }
     });
 
     // Handle form submission
     document.getElementById('effort-form').addEventListener('submit', function(event) {
       event.preventDefault();
-      var effort = parseFloat(document.getElementById('effort-input').value);
-      t.set('card', 'shared', 'effort', effort)
+      var memberEfforts = {};
+      var inputs = document.querySelectorAll('input[type="number"]');
+      inputs.forEach(function(input) {
+        var memberId = input.id.split('-')[1];
+        memberEfforts[memberId] = parseFloat(input.value) || 0;
+      });
+
+      t.set('card', 'shared', 'memberEfforts', memberEfforts)
+      .then(function() {
+        return t.set('card', 'shared', 'totalEffort', Object.values(memberEfforts).reduce((a, b) => a + b, 0));
+      })
       .then(function() {
         t.closePopup();
       });
