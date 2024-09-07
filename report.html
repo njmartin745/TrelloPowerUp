@@ -126,7 +126,10 @@
       var timePeriod = document.getElementById('time-period').value;
       var currentDate = new Date();
       var startDate, endDate;
-
+      const labelHours = aggregateMemberHours(filteredHours);
+      updateChart(labelHours);
+      updateTable(labelHours);
+      updateSummary(labelHours);
       switch(timePeriod) {
         case 'this-week':
           startDate = getStartOfWeek(currentDate);
@@ -215,12 +218,31 @@
         });
     }
 
-    function updateChart(memberWorkloads) {
+    function updateChart(labelHours) {
   log("Updating chart...");
   var ctx = document.getElementById('capacityChart').getContext('2d');
-  var labels = Object.values(memberWorkloads).map(m => m.name);
-  var assignedWork = Object.values(memberWorkloads).map(m => m.workload);
-  var remainingCapacity = Object.values(memberWorkloads).map(m => Math.max(0, m.capacity - m.workload));
+  
+  var labels = Object.keys(labelHours);
+  var datasets = [];
+  var members = new Set();
+
+  // Find all unique members
+  Object.values(labelHours).forEach(label => {
+    Object.keys(label.members).forEach(memberId => members.add(memberId));
+  });
+
+  // Create a dataset for each member
+  Array.from(members).forEach(memberId => {
+    var memberData = labels.map(labelId => {
+      return labelHours[labelId].members[memberId] ? labelHours[labelId].members[memberId].hours : 0;
+    });
+
+    datasets.push({
+      label: labelHours[labels[0]].members[memberId].name,
+      data: memberData,
+      backgroundColor: getColorForTrelloLabel(labelHours[labels[0]].color),
+    });
+  });
 
   if (chart) {
     chart.destroy();
@@ -230,22 +252,7 @@
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: 'Assigned Work',
-          data: assignedWork,
-          backgroundColor: 'rgba(54, 162, 235, 0.8)',
-          borderColor: 'rgb(54, 162, 235)',
-          borderWidth: 1
-        },
-        {
-          label: 'Remaining Capacity',
-          data: remainingCapacity,
-          backgroundColor: 'rgba(211, 211, 211, 0.8)',
-          borderColor: 'rgb(211, 211, 211)',
-          borderWidth: 1
-        }
-      ]
+      datasets: datasets
     },
     options: {
       responsive: true,
@@ -287,8 +294,7 @@
       },
       plugins: {
         legend: {
-          display: true,
-          position: 'top'
+          display: false
         },
         annotation: {
           annotations: {
@@ -318,7 +324,7 @@
                 label += ': ';
               }
               if (context.parsed.y !== null) {
-                label += context.parsed.y + ' hours';
+                label += context.parsed.y.toFixed(1) + ' hours';
               }
               return label;
             }
@@ -326,7 +332,7 @@
         },
         title: {
           display: true,
-          text: 'Team Capacity Utilization',
+          text: 'Team Capacity Utilization by Label',
           font: {
             size: 16
           }
@@ -338,21 +344,22 @@
   log("Chart updated");
 }
 
-    function getColorForTrelloLabel(colorName) {
-      const colorMap = {
-        'green': 'rgba(97, 189, 79, 0.8)',
-        'yellow': 'rgba(242, 214, 0, 0.8)',
-        'orange': 'rgba(255, 159, 26, 0.8)',
-        'red': 'rgba(235, 90, 70, 0.8)',
-        'purple': 'rgba(131, 140, 199, 0.8)',
-        'blue': 'rgba(0, 121, 191, 0.8)',
-        'sky': 'rgba(0, 194, 224, 0.8)',
-        'lime': 'rgba(81, 232, 152, 0.8)',
-        'pink': 'rgba(255, 120, 203, 0.8)',
-        'black': 'rgba(73, 78, 92, 0.8)'
-      };
-      return colorMap[colorName] || 'rgba(0, 121, 191, 0.8)'; // Default to blue if color not found
-    }
+function getColorForTrelloLabel(colorName) {
+  const colorMap = {
+    'green': 'rgba(97, 189, 79, 0.8)',
+    'yellow': 'rgba(242, 214, 0, 0.8)',
+    'orange': 'rgba(255, 159, 26, 0.8)',
+    'red': 'rgba(235, 90, 70, 0.8)',
+    'purple': 'rgba(131, 140, 199, 0.8)',
+    'blue': 'rgba(0, 121, 191, 0.8)',
+    'sky': 'rgba(0, 194, 224, 0.8)',
+    'lime': 'rgba(81, 232, 152, 0.8)',
+    'pink': 'rgba(255, 120, 203, 0.8)',
+    'black': 'rgba(73, 78, 92, 0.8)'
+  };
+  return colorMap[colorName] || 'rgba(0, 121, 191, 0.8)'; // Default to blue if color not found
+}
+
 
     function updateTable(memberWorkloads) {
       var tableBody = document.querySelector('#capacity-table tbody');
