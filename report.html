@@ -3,6 +3,7 @@
 <head>
   <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { 
@@ -217,74 +218,82 @@
     }
 
     function updateChart(memberWorkloads) {
-      log("Updating chart...");
-      var ctx = document.getElementById('capacityChart').getContext('2d');
-      var labels = Object.values(memberWorkloads).map(m => m.name);
-      var assignedWork = Object.values(memberWorkloads).map(m => m.workload);
+  log("Updating chart...");
+  var ctx = document.getElementById('capacityChart').getContext('2d');
+  var labels = Object.values(memberWorkloads).map(m => m.name);
+  var assignedWork = Object.values(memberWorkloads).map(m => m.workload);
 
-      if (chart) {
-        chart.destroy();
-      }
+  if (chart) {
+    chart.destroy();
+  }
 
-      // Get label colors from Trello
-      t.board('labels')
-        .then(function(board) {
-          var labelColors = board.labels.reduce((acc, label) => {
-            acc[label.name.toLowerCase()] = label.color;
-            return acc;
-          }, {});
-
-          var backgroundColors = labels.map(name => {
-            var colorName = labelColors[name.toLowerCase()] || 'blue';
-            return getColorForTrelloLabel(colorName);
-          });
-
-          chart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-              labels: labels,
-              datasets: [{
-                label: 'Assigned Work',
-                data: assignedWork,
-                backgroundColor: backgroundColors
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                x: { stacked: true },
-                y: { 
-                  beginAtZero: true,
-                  max: 40,
-                  ticks: {
-                    callback: function(value) {
-                      return value + 'h';
-                    }
-                  }
-                }
-              },
-              plugins: {
-                annotation: {
-                  annotations: {
-                    line1: {
-                      type: 'line',
-                      yMin: 40 * CAPACITY_THRESHOLD,
-                      yMax: 40 * CAPACITY_THRESHOLD,
-                      borderColor: 'rgb(255, 99, 132)',
-                      borderWidth: 2,
-                    }
-                  }
-                },
-                legend: {
-                  display: false
-                }
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Assigned Work',
+        data: assignedWork,
+        backgroundColor: assignedWork.map(work => work > 32 ? 'rgba(235, 90, 70, 0.8)' : 'rgba(97, 189, 79, 0.8)'),
+        borderColor: assignedWork.map(work => work > 32 ? 'rgb(235, 90, 70)' : 'rgb(97, 189, 79)'),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { 
+          grid: {
+            display: false
+          }
+        },
+        y: { 
+          beginAtZero: true,
+          max: 40,
+          ticks: {
+            stepSize: 10,
+            callback: function(value) {
+              return value + 'h';
+            }
+          },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        annotation: {
+          annotations: {
+            line1: {
+              type: 'line',
+              yMin: 32,
+              yMax: 32,
+              borderColor: 'rgba(255, 99, 132, 0.8)',
+              borderWidth: 2,
+              borderDash: [5, 5],
+              label: {
+                content: '80% Capacity',
+                enabled: true,
+                position: 'end'
               }
             }
-          });
-          log("Chart updated");
-        });
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return context.parsed.y + ' hours';
+            }
+          }
+        }
+      }
     }
+  });
+  log("Chart updated");}
 
     function getColorForTrelloLabel(colorName) {
       const colorMap = {
