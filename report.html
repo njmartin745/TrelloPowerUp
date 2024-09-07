@@ -120,20 +120,39 @@
             };
           });
 
+          var debugInfo = "Cards found: " + cards.length + "<br>";
+
           cards.forEach(function(card) {
-            if (isCardInDateRange(card, startDate, endDate) && card.memberEfforts) {
-              Object.entries(card.memberEfforts).forEach(([memberId, effort]) => {
-                if (memberWorkloads[memberId]) {
-                  memberWorkloads[memberId].workload += effort;
-                  memberWorkloads[memberId].availableCapacity = Math.max(0, CapacityTracker.HOURS_PER_WEEK - memberWorkloads[memberId].workload);
-                }
-              });
+            debugInfo += "Card: " + card.name + ", Due: " + card.due + "<br>";
+
+            if (isCardInDateRange(card, startDate, endDate)) {
+              debugInfo += "- In date range<br>";
+              
+              // Get member efforts from card
+              t.get(card.id, 'shared', 'memberEfforts')
+                .then(function(memberEfforts) {
+                  debugInfo += "- Member efforts: " + JSON.stringify(memberEfforts) + "<br>";
+                  
+                  if (memberEfforts) {
+                    Object.entries(memberEfforts).forEach(([memberId, effort]) => {
+                      if (memberWorkloads[memberId]) {
+                        memberWorkloads[memberId].workload += parseFloat(effort);
+                        memberWorkloads[memberId].availableCapacity = Math.max(0, 40 - memberWorkloads[memberId].workload);
+                        debugInfo += "-- Added " + effort + " hours to " + memberWorkloads[memberId].name + "<br>";
+                      }
+                    });
+                  }
+                  
+                  // Update the report after processing each card
+                  updateChart(memberWorkloads);
+                  updateTable(memberWorkloads);
+                  updateSummary(memberWorkloads);
+                  document.getElementById('debug-info').innerHTML = debugInfo;
+                });
+            } else {
+              debugInfo += "- Not in date range<br>";
             }
           });
-
-          updateChart(memberWorkloads);
-          updateTable(memberWorkloads);
-          updateSummary(memberWorkloads);
         });
     }
 
