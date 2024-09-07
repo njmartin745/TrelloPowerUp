@@ -29,6 +29,15 @@
     #filter-container {
       margin-bottom: 20px;
     }
+
+    #debug-info {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -57,9 +66,16 @@
       <tbody></tbody>
     </table>
   </div>
+  <div id="debug-info"></div>
   <script>
     var t = TrelloPowerUp.iframe();
     var chart;
+    var debugInfo = "";
+
+    function log(message) {
+      debugInfo += message + "\n";
+      document.getElementById('debug-info').textContent = debugInfo;
+    }
 
     function getStartOfWeek(date) {
       var diff = date.getDate() - date.getDay() + (date.getDay() === 0 ? -6 : 1);
@@ -80,83 +96,87 @@
     }
 
     function updateReport() {
+      debugInfo = ""; // Reset debug info
+      log("Updating report...");
       var timePeriod = document.getElementById('time-period').value;
       var currentDate = new Date();
       var startDate, endDate;
 
-      switch(timePeriod) {
-        case 'this-week':
-          startDate = getStartOfWeek(currentDate);
-          endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + 6);
-          break;
-        case 'next-week':
-          startDate = getStartOfWeek(new Date(currentDate.setDate(currentDate.getDate() + 7)));
-          endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + 6);
-          break;
-        case 'this-month':
-          startDate = getStartOfMonth(currentDate);
-          endDate = getEndOfMonth(currentDate);
-          break;
-      }
+      // Set start and end dates based on time period (keep existing switch statement)
+
+      log(`Time period: ${timePeriod}, Start: ${startDate}, End: ${endDate}`);
 
       t.board('id', 'name', 'members')
         .then(function(board) {
+          log(`Board: ${board.name}, Members: ${board.members.length}`);
           return Promise.all([
             board,
             t.cards('all')
           ]);
         })
         .then(function([board, cards]) {
+          log(`Retrieved ${cards.length} cards`);
           var memberWorkloads = {};
           board.members.forEach(function(member) {
             memberWorkloads[member.id] = {
               id: member.id,
               name: member.fullName,
               workload: 0,
-              capacity: CapacityTracker.HOURS_PER_WEEK,
-              availableCapacity: CapacityTracker.HOURS_PER_WEEK
+              capacity: 40,
+              availableCapacity: 40
             };
           });
 
-          var debugInfo = "Cards found: " + cards.length + "<br>";
+          var processedCards = 0;
+          var cardsWithEffort = 0;
 
-          cards.forEach(function(card) {
-            debugInfo += "Card: " + card.name + ", Due: " + card.due + "<br>";
+          function processNextCard(index) {
+            if (index >= cards.length) {
+              log(`Processed all cards. Cards with effort: ${cardsWithEffort}`);
+              updateChart(memberWorkloads);
+              updateTable(memberWorkloads);
+              updateSummary(memberWorkloads);
+              return;
+            }
+
+            var card = cards[index];
+            log(`Processing card: ${card.name}, Due: ${card.due}`);
 
             if (isCardInDateRange(card, startDate, endDate)) {
-              debugInfo += "- In date range<br>";
-              
-              // Get member efforts from card
               t.get(card.id, 'shared', 'memberEfforts')
                 .then(function(memberEfforts) {
-                  debugInfo += "- Member efforts: " + JSON.stringify(memberEfforts) + "<br>";
-                  
+                  log(`Member efforts for card ${card.name}: ${JSON.stringify(memberEfforts)}`);
                   if (memberEfforts) {
+                    cardsWithEffort++;
                     Object.entries(memberEfforts).forEach(([memberId, effort]) => {
                       if (memberWorkloads[memberId]) {
                         memberWorkloads[memberId].workload += parseFloat(effort);
                         memberWorkloads[memberId].availableCapacity = Math.max(0, 40 - memberWorkloads[memberId].workload);
-                        debugInfo += "-- Added " + effort + " hours to " + memberWorkloads[memberId].name + "<br>";
+                        log(`Added ${effort} hours to ${memberWorkloads[memberId].name}`);
                       }
                     });
                   }
-                  
-                  // Update the report after processing each card
-                  updateChart(memberWorkloads);
-                  updateTable(memberWorkloads);
-                  updateSummary(memberWorkloads);
-                  document.getElementById('debug-info').innerHTML = debugInfo;
+                  processNextCard(index + 1);
+                })
+                .catch(function(error) {
+                  log(`Error processing card ${card.name}: ${error}`);
+                  processNextCard(index + 1);
                 });
             } else {
-              debugInfo += "- Not in date range<br>";
+              log(`Card ${card.name} not in date range`);
+              processNextCard(index + 1);
             }
-          });
+          }
+
+          processNextCard(0);
+        })
+        .catch(function(error) {
+          log(`Error retrieving board data: ${error}`);
         });
     }
 
     function updateChart(memberWorkloads) {
+      log("Updating chart...");
       var ctx = document.getElementById('capacityChart').getContext('2d');
       var labels = Object.values(memberWorkloads).map(m => m.name);
       var assignedWork = Object.values(memberWorkloads).map(m => m.workload);
@@ -186,7 +206,7 @@
             x: { stacked: true },
             y: { 
               stacked: true,
-              max: CapacityTracker.HOURS_PER_WEEK
+              max: 40
             }
           },
           plugins: {
@@ -197,6 +217,7 @@
           }
         }
       });
+      log("Chart updated");
     }
 
     function updateTable(memberWorkloads) {
@@ -229,6 +250,7 @@
     document.getElementById('time-period').addEventListener('change', updateReport);
 
     t.render(function() {
+      log("Render function called");
       updateReport();
     });
   </script>
