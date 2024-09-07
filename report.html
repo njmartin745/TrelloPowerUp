@@ -121,102 +121,131 @@
     }
 
     function updateReport() {
-      debugInfo = ""; // Reset debug info
-      log("Updating report...");
-      var timePeriod = document.getElementById('time-period').value;
-      var currentDate = new Date();
-      var startDate, endDate;
-      const labelHours = aggregateMemberHours(filteredHours);
-      updateChart(labelHours);
-      updateTable(labelHours);
-      updateSummary(labelHours);
-      switch(timePeriod) {
-        case 'this-week':
-          startDate = getStartOfWeek(currentDate);
-          endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + 6);
-          break;
-        case 'next-week':
-          startDate = getStartOfWeek(new Date(currentDate.setDate(currentDate.getDate() + 7)));
-          endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + 6);
-          break;
-        case 'this-month':
-          startDate = getStartOfMonth(currentDate);
-          endDate = getEndOfMonth(currentDate);
-          break;
+  debugInfo = ""; // Reset debug info
+  log("Updating report...");
+  var timePeriod = document.getElementById('time-period').value;
+  var currentDate = new Date();
+  var startDate, endDate;
+
+  switch(timePeriod) {
+    case 'this-week':
+      startDate = getStartOfWeek(currentDate);
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6);
+      break;
+    case 'next-week':
+      startDate = getStartOfWeek(new Date(currentDate.setDate(currentDate.getDate() + 7)));
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6);
+      break;
+    case 'this-month':
+      startDate = getStartOfMonth(currentDate);
+      endDate = getEndOfMonth(currentDate);
+      break;
+  }
+
+  log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
+
+  t.board('id', 'name', 'members')
+    .then(function(board) {
+      log(`Board: ${board.name}, Members: ${board.members.length}`);
+      return Promise.all([
+        board,
+        t.cards('all')
+      ]);
+    })
+    .then(function([board, cards]) {
+      log(`Retrieved ${cards.length} cards`);
+      var filteredHours = [];
+
+      function processNextCard(index) {
+        if (index >= cards.length) {
+          log(`Processed all cards. Filtered hours: ${filteredHours.length}`);
+          var labelHours = aggregateMemberHours(filteredHours);
+          updateChart(labelHours);
+          updateTable(labelHours);
+          updateSummary(labelHours);
+          return;
+        }
+
+        var card = cards[index];
+        log(`Processing card: ${card.name}, Due: ${card.due}`);
+
+        if (isCardInDateRange(card, startDate, endDate)) {
+          t.get(card.id, 'shared', 'memberEfforts')
+            .then(function(memberEfforts) {
+              log(`Member efforts for card ${card.name}: ${JSON.stringify(memberEfforts)}`);
+              if (memberEfforts) {
+                Object.entries(memberEfforts).forEach(([memberId, effort]) => {
+                  filteredHours.push({
+                    memberId: memberId,
+                    memberName: board.members.find(m => m.id === memberId)?.fullName || 'Unknown Member',
+                    cardName: card.name,
+                    cardId: card.id,
+                    hours: parseFloat(effort),
+                    labels: card.labels
+                  });
+                });
+              }
+              processNextCard(index + 1);
+            })
+            .catch(function(error) {
+              log(`Error processing card ${card.name}: ${error}`);
+              processNextCard(index + 1);
+            });
+        } else {
+          log(`Card ${card.name} not in date range`);
+          processNextCard(index + 1);
+        }
       }
 
-      log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
+      processNextCard(0);
+    })
+    .catch(function(error) {
+      log(`Error retrieving board data: ${error}`);
+    });
+}
 
-      t.board('id', 'name', 'members')
-        .then(function(board) {
-          log(`Board: ${board.name}, Members: ${board.members.length}`);
-          return Promise.all([
-            board,
-            t.cards('all')
-          ]);
-        })
-        .then(function([board, cards]) {
-          log(`Retrieved ${cards.length} cards`);
-          var memberWorkloads = {};
-          board.members.forEach(function(member) {
-            memberWorkloads[member.id] = {
-              id: member.id,
-              name: member.fullName,
-              workload: 0,
-              capacity: 40,
-              availableCapacity: 40
-            };
-          });
-
-          var processedCards = 0;
-          var cardsWithEffort = 0;
-
-          function processNextCard(index) {
-            if (index >= cards.length) {
-              log(`Processed all cards. Cards with effort: ${cardsWithEffort}`);
-              updateChart(memberWorkloads);
-              updateTable(memberWorkloads);
-              updateSummary(memberWorkloads);
-              return;
-            }
-
-            var card = cards[index];
-            log(`Processing card: ${card.name}, Due: ${card.due}`);
-
-            if (isCardInDateRange(card, startDate, endDate)) {
-              t.get(card.id, 'shared', 'memberEfforts')
-                .then(function(memberEfforts) {
-                  log(`Member efforts for card ${card.name}: ${JSON.stringify(memberEfforts)}`);
-                  if (memberEfforts) {
-                    cardsWithEffort++;
-                    Object.entries(memberEfforts).forEach(([memberId, effort]) => {
-                      if (memberWorkloads[memberId]) {
-                        memberWorkloads[memberId].workload += parseFloat(effort);
-                        memberWorkloads[memberId].availableCapacity = Math.max(0, 40 - memberWorkloads[memberId].workload);
-                        log(`Added ${effort} hours to ${memberWorkloads[memberId].name}`);
-                      }
-                    });
-                  }
-                  processNextCard(index + 1);
-                })
-                .catch(function(error) {
-                  log(`Error processing card ${card.name}: ${error}`);
-                  processNextCard(index + 1);
-                });
-            } else {
-              log(`Card ${card.name} not in date range`);
-              processNextCard(index + 1);
-            }
-          }
-
-          processNextCard(0);
-        })
-        .catch(function(error) {
-          log(`Error retrieving board data: ${error}`);
-        });
+function aggregateMemberHours(memberHours) {
+  const labelHoursMap = {};
+  memberHours.forEach(mh => {
+    if (mh.labels && mh.labels.length > 0) {
+      mh.labels.forEach(label => {
+        if (!labelHoursMap[label.id]) {
+          labelHoursMap[label.id] = { 
+            name: label.name, 
+            color: label.color, 
+            members: {}
+          };
+        }
+        if (!labelHoursMap[label.id].members[mh.memberId]) {
+          labelHoursMap[label.id].members[mh.memberId] = {
+            name: mh.memberName,
+            hours: 0
+          };
+        }
+        labelHoursMap[label.id].members[mh.memberId].hours += mh.hours;
+      });
+    } else {
+      const noLabelId = 'no-label';
+      if (!labelHoursMap[noLabelId]) {
+        labelHoursMap[noLabelId] = {
+          name: 'No Label',
+          color: 'gray',
+          members: {}
+        };
+      }
+      if (!labelHoursMap[noLabelId].members[mh.memberId]) {
+        labelHoursMap[noLabelId].members[mh.memberId] = {
+          name: mh.memberName,
+          hours: 0
+        };
+      }
+      labelHoursMap[noLabelId].members[mh.memberId].hours += mh.hours;
     }
+  });
+  return labelHoursMap;
+}
 
     function updateChart(labelHours) {
   log("Updating chart...");
