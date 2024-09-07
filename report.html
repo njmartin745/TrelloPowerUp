@@ -5,6 +5,12 @@
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    body { 
+      width: 800px; 
+      height: 600px; 
+      padding: 0; 
+      margin: 0; 
+    }
     #report-container {
       padding: 20px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -37,6 +43,9 @@
       border: 1px solid #ccc;
       font-family: monospace;
       white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
     }
   </style>
 </head>
@@ -91,8 +100,14 @@
     }
 
     function isCardInDateRange(card, startDate, endDate) {
+      if (!card.due) {
+        log(`Card ${card.name} has no due date`);
+        return false;
+      }
       var cardDueDate = new Date(card.due);
-      return cardDueDate >= startDate && cardDueDate <= endDate;
+      var result = cardDueDate >= startDate && cardDueDate <= endDate;
+      log(`Card ${card.name} due date: ${cardDueDate.toISOString()}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}, In range: ${result}`);
+      return result;
     }
 
     function updateReport() {
@@ -102,9 +117,24 @@
       var currentDate = new Date();
       var startDate, endDate;
 
-      // Set start and end dates based on time period (keep existing switch statement)
+      switch(timePeriod) {
+        case 'this-week':
+          startDate = getStartOfWeek(currentDate);
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 6);
+          break;
+        case 'next-week':
+          startDate = getStartOfWeek(new Date(currentDate.setDate(currentDate.getDate() + 7)));
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 6);
+          break;
+        case 'this-month':
+          startDate = getStartOfMonth(currentDate);
+          endDate = getEndOfMonth(currentDate);
+          break;
+      }
 
-      log(`Time period: ${timePeriod}, Start: ${startDate}, End: ${endDate}`);
+      log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
 
       t.board('id', 'name', 'members')
         .then(function(board) {
@@ -251,6 +281,7 @@
 
     t.render(function() {
       log("Render function called");
+      t.sizeTo('body').done();
       updateReport();
     });
   </script>
