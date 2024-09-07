@@ -7,84 +7,210 @@
   <style>
     #report-container {
       padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
     }
     canvas {
       max-width: 100%;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    #filter-container {
+      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
   <div id="report-container">
     <h2>Team Capacity Report</h2>
+    <div id="filter-container">
+      <label for="time-period">Time Period:</label>
+      <select id="time-period">
+        <option value="this-week">This Week</option>
+        <option value="next-week">Next Week</option>
+        <option value="this-month">This Month</option>
+      </select>
+    </div>
     <canvas id="capacityChart"></canvas>
+    <div id="summary-container"></div>
+    <table id="capacity-table">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Assigned Work</th>
+          <th>Capacity</th>
+          <th>Available Capacity</th>
+          <th>Utilization</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
   <script>
     var t = TrelloPowerUp.iframe();
+    var chart;
 
-    t.render(function() {
-      return Promise.all([
-        t.board('members'),
-        t.cards('all')
-      ])
-      .then(function([board, cards]) {
-        var memberEfforts = {};
-        var totalCapacity = board.members.length * 40; // Assuming 40 hours per week per member
+    function getStartOfWeek(date) {
+      var diff = date.getDate() - date.getDay() + (date.getDay() === 0 ? -6 : 1);
+      return new Date(date.setDate(diff));
+    }
 
-        // Calculate total effort for each member
-        cards.forEach(function(card) {
-          if (card.memberEfforts) {
-            Object.entries(card.memberEfforts).forEach(([memberId, effort]) => {
-              memberEfforts[memberId] = (memberEfforts[memberId] || 0) + effort;
-            });
-          }
+    function getStartOfMonth(date) {
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    function getEndOfMonth(date) {
+      return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    }
+
+    function isCardInDateRange(card, startDate, endDate) {
+      var cardDueDate = new Date(card.due);
+      return cardDueDate >= startDate && cardDueDate <= endDate;
+    }
+
+    function updateReport() {
+      var timePeriod = document.getElementById('time-period').value;
+      var currentDate = new Date();
+      var startDate, endDate;
+
+      switch(timePeriod) {
+        case 'this-week':
+          startDate = getStartOfWeek(currentDate);
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 6);
+          break;
+        case 'next-week':
+          startDate = getStartOfWeek(new Date(currentDate.setDate(currentDate.getDate() + 7)));
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 6);
+          break;
+        case 'this-month':
+          startDate = getStartOfMonth(currentDate);
+          endDate = getEndOfMonth(currentDate);
+          break;
+      }
+
+      t.board('id', 'name', 'members')
+        .then(function(board) {
+          return Promise.all([
+            board,
+            t.cards('all')
+          ]);
+        })
+        .then(function([board, cards]) {
+          var memberWorkloads = {};
+          board.members.forEach(function(member) {
+            memberWorkloads[member.id] = {
+              id: member.id,
+              name: member.fullName,
+              workload: 0,
+              capacity: CapacityTracker.HOURS_PER_WEEK,
+              availableCapacity: CapacityTracker.HOURS_PER_WEEK
+            };
+          });
+
+          cards.forEach(function(card) {
+            if (isCardInDateRange(card, startDate, endDate) && card.memberEfforts) {
+              Object.entries(card.memberEfforts).forEach(([memberId, effort]) => {
+                if (memberWorkloads[memberId]) {
+                  memberWorkloads[memberId].workload += effort;
+                  memberWorkloads[memberId].availableCapacity = Math.max(0, CapacityTracker.HOURS_PER_WEEK - memberWorkloads[memberId].workload);
+                }
+              });
+            }
+          });
+
+          updateChart(memberWorkloads);
+          updateTable(memberWorkloads);
+          updateSummary(memberWorkloads);
         });
+    }
 
-        // Prepare data for chart
-        var labels = board.members.map(member => member.fullName);
-        var data = board.members.map(member => memberEfforts[member.id] || 0);
-        var remainingCapacity = board.members.map(member => 40 - (memberEfforts[member.id] || 0));
+    function updateChart(memberWorkloads) {
+      var ctx = document.getElementById('capacityChart').getContext('2d');
+      var labels = Object.values(memberWorkloads).map(m => m.name);
+      var assignedWork = Object.values(memberWorkloads).map(m => m.workload);
+      var availableCapacity = Object.values(memberWorkloads).map(m => m.availableCapacity);
 
-        // Create chart
-        var ctx = document.getElementById('capacityChart').getContext('2d');
-        new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'Assigned Effort',
-              data: data,
-              backgroundColor: 'rgba(54, 162, 235, 0.8)'
-            }, {
-              label: 'Remaining Capacity',
-              data: remainingCapacity,
-              backgroundColor: 'rgba(75, 192, 192, 0.8)'
-            }]
+      if (chart) {
+        chart.destroy();
+      }
+
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Assigned Work',
+            data: assignedWork,
+            backgroundColor: 'rgba(54, 162, 235, 0.8)'
+          }, {
+            label: 'Available Capacity',
+            data: availableCapacity,
+            backgroundColor: 'rgba(75, 192, 192, 0.8)'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { stacked: true },
+            y: { 
+              stacked: true,
+              max: CapacityTracker.HOURS_PER_WEEK
+            }
           },
-          options: {
-            responsive: true,
-            scales: {
-              x: { stacked: true },
-              y: { 
-                stacked: true,
-                max: 40
-              }
-            },
-            plugins: {
-              title: {
-                display: true,
-                text: 'Team Capacity (Hours per Week)'
-              }
+          plugins: {
+            title: {
+              display: true,
+              text: 'Team Capacity (Hours)'
             }
           }
-        });
-
-        // Display total capacity utilization
-        var totalEffort = Object.values(memberEfforts).reduce((a, b) => a + b, 0);
-        var capacityUtilization = (totalEffort / totalCapacity) * 100;
-        var utilizationElement = document.createElement('p');
-        utilizationElement.textContent = `Total Capacity Utilization: ${capacityUtilization.toFixed(2)}%`;
-        document.getElementById('report-container').appendChild(utilizationElement);
+        }
       });
+    }
+
+    function updateTable(memberWorkloads) {
+      var tableBody = document.querySelector('#capacity-table tbody');
+      tableBody.innerHTML = '';
+      Object.values(memberWorkloads).forEach(function(member) {
+        var row = tableBody.insertRow();
+        row.insertCell().textContent = member.name;
+        row.insertCell().textContent = member.workload.toFixed(1) + ' hours';
+        row.insertCell().textContent = member.capacity + ' hours';
+        row.insertCell().textContent = member.availableCapacity.toFixed(1) + ' hours';
+        var utilization = (member.workload / member.capacity) * 100;
+        row.insertCell().textContent = utilization.toFixed(1) + '%';
+      });
+    }
+
+    function updateSummary(memberWorkloads) {
+      var totalCapacity = Object.values(memberWorkloads).reduce((sum, member) => sum + member.capacity, 0);
+      var totalWorkload = Object.values(memberWorkloads).reduce((sum, member) => sum + member.workload, 0);
+      var totalUtilization = (totalWorkload / totalCapacity) * 100;
+
+      var summaryContainer = document.getElementById('summary-container');
+      summaryContainer.innerHTML = `
+        <p><strong>Total Team Capacity:</strong> ${totalCapacity} hours</p>
+        <p><strong>Total Assigned Work:</strong> ${totalWorkload.toFixed(1)} hours</p>
+        <p><strong>Overall Utilization:</strong> ${totalUtilization.toFixed(1)}%</p>
+      `;
+    }
+
+    document.getElementById('time-period').addEventListener('change', updateReport);
+
+    t.render(function() {
+      updateReport();
     });
   </script>
 </body>
