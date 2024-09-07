@@ -242,10 +242,23 @@
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: {
+          left: 15,
+          right: 15,
+          top: 20,
+          bottom: 20
+        }
+      },
       scales: {
         x: { 
           grid: {
             display: false
+          },
+          ticks: {
+            autoSkip: false,
+            maxRotation: 90,
+            minRotation: 90
           }
         },
         y: { 
@@ -276,9 +289,12 @@
               borderWidth: 2,
               borderDash: [5, 5],
               label: {
-                content: '80% Capacity',
+                content: '80% Capacity (32h)',
                 enabled: true,
-                position: 'end'
+                position: 'start',
+                backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                color: 'white',
+                padding: 4
               }
             }
           }
@@ -289,11 +305,35 @@
               return context.parsed.y + ' hours';
             }
           }
+        },
+        title: {
+          display: true,
+          text: 'Team Capacity Utilization',
+          font: {
+            size: 16
+          }
         }
       }
     }
   });
-  log("Chart updated");}
+  
+  // Add color legend
+  var legendHtml = `
+    <div style="display: flex; justify-content: center; margin-top: 10px;">
+      <div style="margin-right: 20px;">
+        <span style="background-color: rgba(97, 189, 79, 0.8); padding: 2px 10px; margin-right: 5px;"></span>
+        Under 80% Capacity
+      </div>
+      <div>
+        <span style="background-color: rgba(235, 90, 70, 0.8); padding: 2px 10px; margin-right: 5px;"></span>
+        Over 80% Capacity
+      </div>
+    </div>
+  `;
+  document.getElementById('capacityChart').insertAdjacentHTML('afterend', legendHtml);
+  
+  log("Chart updated");
+}
 
     function getColorForTrelloLabel(colorName) {
       const colorMap = {
