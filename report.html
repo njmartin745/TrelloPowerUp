@@ -220,6 +220,7 @@
   var ctx = document.getElementById('capacityChart').getContext('2d');
   var labels = Object.values(memberWorkloads).map(m => m.name);
   var assignedWork = Object.values(memberWorkloads).map(m => m.workload);
+  var remainingCapacity = Object.values(memberWorkloads).map(m => Math.max(0, m.capacity - m.workload));
 
   if (chart) {
     chart.destroy();
@@ -229,13 +230,22 @@
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [{
-        label: 'Assigned Work',
-        data: assignedWork,
-        backgroundColor: assignedWork.map(work => work > 32 ? 'rgba(235, 90, 70, 0.8)' : 'rgba(97, 189, 79, 0.8)'),
-        borderColor: assignedWork.map(work => work > 32 ? 'rgb(235, 90, 70)' : 'rgb(97, 189, 79)'),
-        borderWidth: 1
-      }]
+      datasets: [
+        {
+          label: 'Assigned Work',
+          data: assignedWork,
+          backgroundColor: 'rgba(54, 162, 235, 0.8)',
+          borderColor: 'rgb(54, 162, 235)',
+          borderWidth: 1
+        },
+        {
+          label: 'Remaining Capacity',
+          data: remainingCapacity,
+          backgroundColor: 'rgba(211, 211, 211, 0.8)',
+          borderColor: 'rgb(211, 211, 211)',
+          borderWidth: 1
+        }
+      ]
     },
     options: {
       responsive: true,
@@ -250,6 +260,7 @@
       },
       scales: {
         x: { 
+          stacked: true,
           grid: {
             display: false
           },
@@ -260,6 +271,7 @@
           }
         },
         y: { 
+          stacked: true,
           beginAtZero: true,
           max: 40,
           ticks: {
@@ -275,7 +287,8 @@
       },
       plugins: {
         legend: {
-          display: false
+          display: true,
+          position: 'top'
         },
         annotation: {
           annotations: {
@@ -300,7 +313,14 @@
         tooltip: {
           callbacks: {
             label: function(context) {
-              return context.parsed.y + ' hours';
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y + ' hours';
+              }
+              return label;
             }
           }
         },
@@ -313,7 +333,8 @@
         }
       }
     }
-  }); 
+  });
+  
   log("Chart updated");
 }
 
