@@ -13,9 +13,11 @@
       margin: 0; 
       overflow: auto;
       box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
     }
     #report-container {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
     }
     h2 {
       margin-top: 0;
@@ -27,37 +29,26 @@
       height: 300px !important;
       margin-bottom: 15px;
     }
-    table {
+    #filter-container, #summary-container {
+      margin-bottom: 15px;
+    }
+    #capacity-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
       margin-top: 15px;
     }
-    th, td {
+    #capacity-table th, #capacity-table td {
       border: 1px solid #ddd;
       padding: 8px;
       text-align: left;
     }
-    th {
+    #capacity-table th {
       background-color: #f2f2f2;
     }
-    #filter-container {
-      margin-bottom: 15px;
-    }
-    #summary-container {
-      font-size: 16px;
-      margin-bottom: 15px;
-    }
-    #debug-info {
-      margin-top: 15px;
-      padding: 8px;
-      background-color: #f0f0f0;
-      border: 1px solid #ccc;
-      font-family: monospace;
-      white-space: pre-wrap;
-      font-size: 12px;
-      max-height: 100px;
-      overflow-y: auto;
+    #chart-legend {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
     }
   </style>
 </head>
