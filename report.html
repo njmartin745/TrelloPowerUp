@@ -251,7 +251,7 @@ function aggregateMemberHours(memberHours) {
   log("Updating chart...");
   var ctx = document.getElementById('capacityChart').getContext('2d');
   
-  var labels = Object.keys(labelHours);
+  var labels = Object.values(labelHours).map(label => label.name);
   var datasets = [];
   var members = new Set();
 
@@ -403,18 +403,26 @@ function getColorForTrelloLabel(colorName) {
       });
     }
 
-    function updateSummary(memberWorkloads) {
-      var totalCapacity = Object.values(memberWorkloads).reduce((sum, member) => sum + member.capacity, 0);
-      var totalWorkload = Object.values(memberWorkloads).reduce((sum, member) => sum + member.workload, 0);
-      var totalUtilization = (totalWorkload / totalCapacity) * 100;
+    function updateSummary(labelHours) {
+  var totalCapacity = 0;
+  var totalWorkload = 0;
+  
+  Object.values(labelHours).forEach(label => {
+    Object.values(label.members).forEach(member => {
+      totalWorkload += member.hours;
+      totalCapacity += 40; // Assuming 40 hours capacity per member
+    });
+  });
 
-      var summaryContainer = document.getElementById('summary-container');
-      summaryContainer.innerHTML = `
-        <p><strong>Total Team Capacity:</strong> ${totalCapacity} hours</p>
-        <p><strong>Total Assigned Work:</strong> ${totalWorkload.toFixed(1)} hours</p>
-        <p><strong>Overall Utilization:</strong> ${totalUtilization.toFixed(1)}%</p>
-      `;
-    }
+  var totalUtilization = totalCapacity > 0 ? (totalWorkload / totalCapacity) * 100 : 0;
+
+  var summaryContainer = document.getElementById('summary-container');
+  summaryContainer.innerHTML = `
+    <p><strong>Total Team Capacity:</strong> ${totalCapacity.toFixed(1)} hours</p>
+    <p><strong>Total Assigned Work:</strong> ${totalWorkload.toFixed(1)} hours</p>
+    <p><strong>Overall Utilization:</strong> ${totalUtilization.toFixed(1)}%</p>
+  `;
+}
 
     document.getElementById('time-period').addEventListener('change', updateReport);
 
