@@ -296,7 +296,7 @@ function updateChart(memberWorkloads) {
 
   console.log("Datasets:", datasets);
 
-  if (window.capacityChart) {
+  if (window.capacityChart && typeof window.capacityChart.destroy === 'function') {
     window.capacityChart.destroy();
   }
 
