@@ -262,20 +262,19 @@ function aggregateMemberHours(memberHours) {
   return labelHoursMap;
 }
 
-    function updateChart(labelHours) {
+function updateChart(labelHours) {
   log("Updating chart...");
   var ctx = document.getElementById('capacityChart').getContext('2d');
   
-  var labels = Object.values(labelHours).map(label => label.name);
+  var labels = Object.keys(labelHours);
   var datasets = [];
   var members = new Set();
 
-  // Find all unique members
+  // Find all unique members and create datasets
   Object.values(labelHours).forEach(label => {
     Object.keys(label.members).forEach(memberId => members.add(memberId));
   });
 
-  // Create a dataset for each member
   Array.from(members).forEach(memberId => {
     var memberData = labels.map(labelId => {
       return labelHours[labelId].members[memberId] ? labelHours[labelId].members[memberId].hours : 0;
@@ -301,24 +300,11 @@ function aggregateMemberHours(memberHours) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: {
-        padding: {
-          left: 15,
-          right: 15,
-          top: 20,
-          bottom: 20
-        }
-      },
       scales: {
         x: { 
           stacked: true,
           grid: {
             display: false
-          },
-          ticks: {
-            autoSkip: false,
-            maxRotation: 90,
-            minRotation: 90
           }
         },
         y: { 
@@ -330,49 +316,12 @@ function aggregateMemberHours(memberHours) {
             callback: function(value) {
               return value + 'h';
             }
-          },
-          grid: {
-            color: 'rgba(0, 0, 0, 0.1)'
           }
         }
       },
       plugins: {
         legend: {
           display: false
-        },
-        annotation: {
-          annotations: {
-            line1: {
-              type: 'line',
-              yMin: 32,
-              yMax: 32,
-              borderColor: 'rgba(255, 0, 0, 0.8)',
-              borderWidth: 2,
-              borderDash: [5, 5],
-              label: {
-                content: '80% Capacity (32h)',
-                enabled: true,
-                position: 'start',
-                backgroundColor: 'rgba(255, 0, 0, 0.8)',
-                color: 'white',
-                padding: 4
-              }
-            }
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
-              }
-              if (context.parsed.y !== null) {
-                label += context.parsed.y.toFixed(1) + ' hours';
-              }
-              return label;
-            }
-          }
         },
         title: {
           display: true,
@@ -382,7 +331,27 @@ function aggregateMemberHours(memberHours) {
           }
         }
       }
-    }
+    },
+    plugins: [{ 
+      id: 'thresholdLine', 
+      beforeDraw: (chart) => { 
+        const ctx = chart.ctx; 
+        const yAxis = chart.scales.y; 
+        const thresholdValue = 32; 
+        const yPixel = yAxis.getPixelForValue(thresholdValue); 
+        ctx.save(); 
+        ctx.beginPath(); 
+        ctx.moveTo(chart.chartArea.left, yPixel); 
+        ctx.lineTo(chart.chartArea.right, yPixel); 
+        ctx.lineWidth = 2; 
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; 
+        ctx.stroke(); 
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.textAlign = 'left';
+        ctx.fillText('80% Capacity (32h)', chart.chartArea.left, yPixel - 5);
+        ctx.restore(); 
+      } 
+    }]
   });
   
   log("Chart updated");
