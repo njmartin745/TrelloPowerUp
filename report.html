@@ -275,39 +275,17 @@ function aggregateMemberHours(memberHours) {
   });
   return labelHoursMap;
 }
-/*working*/
+
 function updateChart(memberWorkloads) {
   console.log("Starting updateChart function");
   console.log("memberWorkloads:", memberWorkloads);
 
   var ctx = document.getElementById('capacityChart').getContext('2d');
   
-  // Get all unique members across all labels
-  var allMembers = new Set();
-  Object.values(labelHours).forEach(label => {
-    Object.keys(label.members).forEach(memberId => allMembers.add(memberId));
-  });
-
-  // Reorganize data by member, including all members
-  var memberData = {};
-  allMembers.forEach(memberId => {
-    memberData[memberId] = {
-      name: '', // We'll set this later
-      labels: {}
-    };
-  });
-
-  Object.values(labelHours).forEach(label => {
-    Object.entries(label.members).forEach(([memberId, member]) => {
-      memberData[memberId].name = member.name;
-      memberData[memberId].labels[label.name] = member.hours;
-    });
-  });
-
   var members = Object.keys(memberWorkloads);
   console.log("Members:", members);
 
-  var labels = Array.from(new Set(members.flatMap(m => Object.keys(memberWorkloads[m].labels))));
+  var labels = Array.from(new Set(Object.values(memberWorkloads).flatMap(m => Object.keys(m.labels))));
   console.log("Labels:", labels);
 
   var datasets = labels.map(label => ({
@@ -318,93 +296,83 @@ function updateChart(memberWorkloads) {
 
   console.log("Datasets:", datasets);
 
-  if (chart) {
-    chart.destroy();
+  if (window.capacityChart) {
+    window.capacityChart.destroy();
   }
 
-  chart = new Chart(ctx, {
-  type: 'bar',
-  data: {
-    labels: members.map(memberId => memberData[memberId].name || 'Unknown Member'),
-    datasets: datasets
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: { 
-        stacked: true,
-        grid: {
-          display: false
-        },
-        ticks: {
-          autoSkip: false,
-          maxRotation: 90,
-          minRotation: 90,
-          align: 'start',
-          font: {
-            size: 10
-          },
-          padding: 10
-        }
+  try {
+    window.capacityChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: members.map(memberId => memberWorkloads[memberId].name),
+        datasets: datasets
       },
-      y: { 
-        stacked: true,
-        beginAtZero: true,
-        max: 40,
-        ticks: {
-          stepSize: 10,
-          callback: function(value) {
-            return value + 'h';
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { 
+            stacked: true,
+            grid: {
+              display: false
+            },
+            ticks: {
+              autoSkip: false,
+              maxRotation: 90,
+              minRotation: 90
+            }
+          },
+          y: { 
+            stacked: true,
+            beginAtZero: true,
+            max: 40,
+            ticks: {
+              stepSize: 10,
+              callback: function(value) {
+                return value + 'h';
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          title: {
+            display: true,
+            text: 'Team Capacity Utilization by Member',
+            font: {
+              size: 16
+            }
           }
         }
-      }
-    },
-    plugins: {
-      legend: {
-        display: true,
-        position: 'top'
       },
-      title: {
-        display: true,
-        text: 'Team Capacity Utilization by Member',
-        font: {
-          size: 16
-        }
-      }
-    },
-    layout: {
-      padding: {
-        left: 0,
-        right: 20,
-        top: 0,
-        bottom: 40
-      }
-    }
-  },
-    plugins: [{ 
-      id: 'thresholdLine', 
-      beforeDraw: (chart) => { 
-        const ctx = chart.ctx; 
-        const yAxis = chart.scales.y; 
-        const thresholdValue = 32; 
-        const yPixel = yAxis.getPixelForValue(thresholdValue); 
-        ctx.save(); 
-        ctx.beginPath(); 
-        ctx.moveTo(chart.chartArea.left, yPixel); 
-        ctx.lineTo(chart.chartArea.right, yPixel); 
-        ctx.lineWidth = 2; 
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; 
-        ctx.stroke(); 
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
-        ctx.textAlign = 'left';
-        /*ctx.fillText('80% Capacity (32h)', chart.chartArea.left, yPixel - 5);*/
-        ctx.restore(); 
-      } 
-    }]
-  });
-  console.log("Chart configuration complete");
-  log("Chart updated");
+      plugins: [{ 
+        id: 'thresholdLine', 
+        beforeDraw: (chart) => { 
+          const ctx = chart.ctx; 
+          const yAxis = chart.scales.y; 
+          const thresholdValue = 32; 
+          const yPixel = yAxis.getPixelForValue(thresholdValue); 
+          ctx.save(); 
+          ctx.beginPath(); 
+          ctx.moveTo(chart.chartArea.left, yPixel); 
+          ctx.lineTo(chart.chartArea.right, yPixel); 
+          ctx.lineWidth = 2; 
+          ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; 
+          ctx.stroke(); 
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+          ctx.textAlign = 'left';
+          ctx.fillText('80% Capacity (32h)', chart.chartArea.left, yPixel - 5);
+          ctx.restore(); 
+        } 
+      }]
+    });
+    console.log("Chart rendered successfully");
+  } catch (error) {
+    console.error("Error rendering chart:", error);
+  }
 }
 
 function getColorForTrelloLabel(colorName) {
