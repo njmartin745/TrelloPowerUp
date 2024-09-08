@@ -266,28 +266,28 @@ function updateChart(labelHours) {
   log("Updating chart...");
   var ctx = document.getElementById('capacityChart').getContext('2d');
   
-  /*var labels = Object.keys(labelHours);*/
-  var labels = Object.values(labelHours).map(label => label.name);
-  var datasets = [];
-  var members = new Set();
-
-  // Find all unique members and create datasets
+  // Reorganize data by member
+  var memberData = {};
   Object.values(labelHours).forEach(label => {
-    Object.keys(label.members).forEach(memberId => members.add(memberId));
+    Object.entries(label.members).forEach(([memberId, member]) => {
+      if (!memberData[memberId]) {
+        memberData[memberId] = {
+          name: member.name,
+          labels: {}
+        };
+      }
+      memberData[memberId].labels[label.name] = member.hours;
+    });
   });
 
-  Array.from(members).forEach(memberId => {
-  var memberData = labels.map(labelName => {
-    const label = Object.values(labelHours).find(l => l.name === labelName);
-    return label && label.members[memberId] ? label.members[memberId].hours : 0;
-  });
+  var members = Object.keys(memberData);
+  var labels = Array.from(new Set(Object.values(labelHours).map(l => l.name)));
 
-  datasets.push({
-    label: Object.values(labelHours)[0].members[memberId].name,
-    data: memberData,
-    backgroundColor: getColorForTrelloLabel(Object.values(labelHours)[0].color),
-  });
-});
+  var datasets = labels.map(label => ({
+    label: label,
+    data: members.map(memberId => memberData[memberId].labels[label] || 0),
+    backgroundColor: getColorForTrelloLabel(labelHours[Object.keys(labelHours).find(key => labelHours[key].name === label)].color),
+  }));
 
   if (chart) {
     chart.destroy();
@@ -296,7 +296,7 @@ function updateChart(labelHours) {
   chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: labels,
+      labels: members.map(memberId => memberData[memberId].name),
       datasets: datasets
     },
     options: {
@@ -307,6 +307,11 @@ function updateChart(labelHours) {
           stacked: true,
           grid: {
             display: false
+          },
+          ticks: {
+            autoSkip: false,
+            maxRotation: 45,
+            minRotation: 45
           }
         },
         y: { 
@@ -323,11 +328,12 @@ function updateChart(labelHours) {
       },
       plugins: {
         legend: {
-          display: false
+          display: true,
+          position: 'top'
         },
         title: {
           display: true,
-          text: 'Team Capacity Utilization by Label',
+          text: 'Team Capacity Utilization by Member',
           font: {
             size: 16
           }
