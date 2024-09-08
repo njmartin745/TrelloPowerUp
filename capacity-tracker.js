@@ -44,6 +44,7 @@ var CapacityTracker = {
       title: 'Capacity Report',
       url: './report.html',
       height: 600,
+      width: 200,
       fullscreen: false,
     });
   },
