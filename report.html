@@ -266,7 +266,8 @@ function updateChart(labelHours) {
   log("Updating chart...");
   var ctx = document.getElementById('capacityChart').getContext('2d');
   
-  var labels = Object.keys(labelHours);
+  /*var labels = Object.keys(labelHours);*/
+  var labels = Object.values(labelHours).map(label => label.name);
   var datasets = [];
   var members = new Set();
 
@@ -276,16 +277,17 @@ function updateChart(labelHours) {
   });
 
   Array.from(members).forEach(memberId => {
-    var memberData = labels.map(labelId => {
-      return labelHours[labelId].members[memberId] ? labelHours[labelId].members[memberId].hours : 0;
-    });
-
-    datasets.push({
-      label: labelHours[labels[0]].members[memberId].name,
-      data: memberData,
-      backgroundColor: getColorForTrelloLabel(labelHours[labels[0]].color),
-    });
+  var memberData = labels.map(labelName => {
+    const label = Object.values(labelHours).find(l => l.name === labelName);
+    return label && label.members[memberId] ? label.members[memberId].hours : 0;
   });
+
+  datasets.push({
+    label: Object.values(labelHours)[0].members[memberId].name,
+    data: memberData,
+    backgroundColor: getColorForTrelloLabel(Object.values(labelHours)[0].color),
+  });
+});
 
   if (chart) {
     chart.destroy();
