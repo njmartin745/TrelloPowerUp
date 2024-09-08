@@ -43,7 +43,8 @@ var CapacityTracker = {
     return t.popup({
       title: 'Capacity Report',
       url: './report.html',
-      height: 500
+      height: 600,
+      fullscreen: false,
     });
   },
 
