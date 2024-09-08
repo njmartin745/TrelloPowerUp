@@ -40,11 +40,11 @@ var CapacityTracker = {
   },
 
   showCapacityReport: function(t) {
-    return t.popup({
+    return t.modal({
       title: 'Capacity Report',
       url: './report.html',
       height: 600,
-      width: 500,
+      width: 800,
       fullscreen: false,
     });
   },
