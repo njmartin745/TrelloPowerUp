@@ -142,6 +142,7 @@
   var currentDate = new Date();
   var startDate, endDate;
 
+
   switch(timePeriod) {
     case 'this-week':
       startDate = getStartOfWeek(currentDate);
@@ -171,15 +172,24 @@
     })
     .then(function([board, cards]) {
       log(`Retrieved ${cards.length} cards`);
-      var filteredHours = [];
+      var memberWorkloads = {};
+      
+      // Initialize all board members with zero workload
+      board.members.forEach(function(member) {
+        memberWorkloads[member.id] = {
+          id: member.id,
+          name: member.fullName,
+          workload: 0,
+          labels: {}
+        };
+      });
 
       function processNextCard(index) {
         if (index >= cards.length) {
-          log(`Processed all cards. Filtered hours: ${filteredHours.length}`);
-          var labelHours = aggregateMemberHours(filteredHours);
-          updateChart(labelHours);
-          updateTable(labelHours);
-          updateSummary(labelHours);
+          log(`Processed all cards. Updating chart with ${Object.keys(memberWorkloads).length} members.`);
+          updateChart(memberWorkloads);
+          updateTable(memberWorkloads);
+          updateSummary(memberWorkloads);
           return;
         }
 
@@ -192,14 +202,17 @@
               log(`Member efforts for card ${card.name}: ${JSON.stringify(memberEfforts)}`);
               if (memberEfforts) {
                 Object.entries(memberEfforts).forEach(([memberId, effort]) => {
-                  filteredHours.push({
-                    memberId: memberId,
-                    memberName: board.members.find(m => m.id === memberId)?.fullName || 'Unknown Member',
-                    cardName: card.name,
-                    cardId: card.id,
-                    hours: parseFloat(effort),
-                    labels: card.labels
-                  });
+                  if (memberWorkloads[memberId]) {
+                    memberWorkloads[memberId].workload += parseFloat(effort);
+                    card.labels.forEach(label => {
+                      if (!memberWorkloads[memberId].labels[label.name]) {
+                        memberWorkloads[memberId].labels[label.name] = 0;
+                      }
+                      memberWorkloads[memberId].labels[label.name] += parseFloat(effort);
+                    });
+                  } else {
+                    log(`Warning: Member ${memberId} not found in board members.`);
+                  }
                 });
               }
               processNextCard(index + 1);
@@ -220,7 +233,6 @@
       log(`Error retrieving board data: ${error}`);
     });
 }
-
 function aggregateMemberHours(memberHours) {
   const labelHoursMap = {};
   memberHours.forEach(mh => {
