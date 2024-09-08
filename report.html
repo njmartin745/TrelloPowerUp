@@ -300,13 +300,13 @@ function updateChart(labelHours) {
     });
   });
 
-  var members = Object.keys(memberData);
-  var labels = Array.from(new Set(Object.values(labelHours).map(l => l.name)));
+  var members = Object.keys(memberWorkloads);
+  var labels = Array.from(new Set(members.flatMap(m => Object.keys(memberWorkloads[m].labels))));
 
   var datasets = labels.map(label => ({
     label: label,
-    data: members.map(memberId => memberData[memberId].labels[label] || 0),
-    backgroundColor: getColorForTrelloLabel(labelHours[Object.keys(labelHours).find(key => labelHours[key].name === label)].color),
+    data: members.map(memberId => memberWorkloads[memberId].labels[label] || 0),
+    backgroundColor: getColorForTrelloLabel(label),
   }));
 
   if (chart) {
