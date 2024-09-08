@@ -346,14 +346,23 @@ function updateChart(memberWorkloads, labelColors) {
         },
         plugins: {
           legend: {
-            display: true,
-            position: 'top'
+            display: false  // This line removes the legend
           },
           title: {
             display: true,
             text: 'Team Capacity Utilization by Member',
             font: {
               size: 16
+            }
+          },
+          tooltip: {
+            callbacks: {
+              title: function(context) {
+                return context[0].label;
+              },
+              label: function(context) {
+                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}h`;
+              }
             }
           }
         }
