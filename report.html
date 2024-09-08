@@ -136,6 +136,7 @@
     }
 
     function updateReport() {
+  console.log("Starting updateReport function");
   debugInfo = ""; // Reset debug info
   log("Updating report...");
   var timePeriod = document.getElementById('time-period').value;
@@ -160,18 +161,18 @@
       break;
   }
 
-  log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
+  console.log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
 
   t.board('id', 'name', 'members')
     .then(function(board) {
-      log(`Board: ${board.name}, Members: ${board.members.length}`);
+      console.log(`Board: ${board.name}, Members: ${board.members.length}`);
       return Promise.all([
         board,
         t.cards('all')
       ]);
     })
     .then(function([board, cards]) {
-      log(`Retrieved ${cards.length} cards`);
+      console.log(`Retrieved ${cards.length} cards`);
       var memberWorkloads = {};
       
       // Initialize all board members with zero workload
@@ -183,6 +184,8 @@
           labels: {}
         };
       });
+
+      console.log("Initialized memberWorkloads:", memberWorkloads);
 
       function processNextCard(index) {
         if (index >= cards.length) {
@@ -226,7 +229,6 @@
           processNextCard(index + 1);
         }
       }
-
       processNextCard(0);
     })
     .catch(function(error) {
@@ -274,8 +276,10 @@ function aggregateMemberHours(memberHours) {
   return labelHoursMap;
 }
 /*working*/
-function updateChart(labelHours) {
-  log("Updating chart...");
+function updateChart(memberWorkloads) {
+  console.log("Starting updateChart function");
+  console.log("memberWorkloads:", memberWorkloads);
+
   var ctx = document.getElementById('capacityChart').getContext('2d');
   
   // Get all unique members across all labels
@@ -301,13 +305,18 @@ function updateChart(labelHours) {
   });
 
   var members = Object.keys(memberWorkloads);
+  console.log("Members:", members);
+
   var labels = Array.from(new Set(members.flatMap(m => Object.keys(memberWorkloads[m].labels))));
+  console.log("Labels:", labels);
 
   var datasets = labels.map(label => ({
     label: label,
     data: members.map(memberId => memberWorkloads[memberId].labels[label] || 0),
     backgroundColor: getColorForTrelloLabel(label),
   }));
+
+  console.log("Datasets:", datasets);
 
   if (chart) {
     chart.destroy();
@@ -394,7 +403,7 @@ function updateChart(labelHours) {
       } 
     }]
   });
-  
+  console.log("Chart configuration complete");
   log("Chart updated");
 }
 
