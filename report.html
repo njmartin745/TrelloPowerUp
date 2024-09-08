@@ -266,16 +266,24 @@ function updateChart(labelHours) {
   log("Updating chart...");
   var ctx = document.getElementById('capacityChart').getContext('2d');
   
-  // Reorganize data by member
+  // Get all unique members across all labels
+  var allMembers = new Set();
+  Object.values(labelHours).forEach(label => {
+    Object.keys(label.members).forEach(memberId => allMembers.add(memberId));
+  });
+
+  // Reorganize data by member, including all members
   var memberData = {};
+  allMembers.forEach(memberId => {
+    memberData[memberId] = {
+      name: '', // We'll set this later
+      labels: {}
+    };
+  });
+
   Object.values(labelHours).forEach(label => {
     Object.entries(label.members).forEach(([memberId, member]) => {
-      if (!memberData[memberId]) {
-        memberData[memberId] = {
-          name: member.name,
-          labels: {}
-        };
-      }
+      memberData[memberId].name = member.name;
       memberData[memberId].labels[label.name] = member.hours;
     });
   });
@@ -296,7 +304,7 @@ function updateChart(labelHours) {
   chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: members.map(memberId => memberData[memberId].name),
+      labels: members.map(memberId => memberData[memberId].name || 'Unknown Member'),
       datasets: datasets
     },
     options: {
@@ -356,7 +364,7 @@ function updateChart(labelHours) {
         ctx.stroke(); 
         ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
         ctx.textAlign = 'left';
-        ctx.fillText('80% Capacity (32h)', chart.chartArea.left, yPixel - 5);
+        /*ctx.fillText('80% Capacity (32h)', chart.chartArea.left, yPixel - 5);*/
         ctx.restore(); 
       } 
     }]
