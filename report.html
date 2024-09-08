@@ -8,6 +8,7 @@
   <style>
     body { 
       width: 100%; 
+      min-width: 580px; /* Slightly less than 600px to account for potential scrollbar */
       height: 100%; 
       padding: 10px; 
       margin: 0; 
@@ -16,8 +17,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
     }
     #report-container {
-      max-width: 800px;
-      margin: 0 auto;
+      width: 100%;  
     }
     h2 {
       margin-top: 0;
@@ -53,7 +53,11 @@
     #chart-container {
       position: relative;
       height: 400px;
-}
+    }
+    #capacityChart {
+      width: 100% !important;
+      height: 300px !important;
+    } 
   </style>
 </head>
 <body>
@@ -427,9 +431,15 @@ function getColorForTrelloLabel(colorName) {
     document.getElementById('time-period').addEventListener('change', updateReport);
 
     t.render(function() {
-      log("Render function called");
-      updateReport();
-    });
+  // Double the default width (which is typically around 300px)
+  t.sizeTo({
+    width: 600, // This will make it twice as wide
+    height: 'auto' // This will allow the height to adjust based on content
+  }).then(function() {
+    // Call your updateReport function here
+    updateReport();
+  });
+});
   </script>
 </body>
 </html>
