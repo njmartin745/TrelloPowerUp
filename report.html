@@ -302,52 +302,65 @@ function updateChart(labelHours) {
   }
 
   chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: members.map(memberId => memberData[memberId].name || 'Unknown Member'),
-      datasets: datasets
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: { 
-          stacked: true,
-          grid: {
-            display: false
-          },
-          ticks: {
-            autoSkip: false,
-            maxRotation: 45,
-            minRotation: 45
-          }
+  type: 'bar',
+  data: {
+    labels: members.map(memberId => memberData[memberId].name || 'Unknown Member'),
+    datasets: datasets
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { 
+        stacked: true,
+        grid: {
+          display: false
         },
-        y: { 
-          stacked: true,
-          beginAtZero: true,
-          max: 40,
-          ticks: {
-            stepSize: 10,
-            callback: function(value) {
-              return value + 'h';
-            }
-          }
+        ticks: {
+          autoSkip: false,
+          maxRotation: 90,
+          minRotation: 90,
+          align: 'start',
+          font: {
+            size: 10
+          },
+          padding: 10
         }
       },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top'
-        },
-        title: {
-          display: true,
-          text: 'Team Capacity Utilization by Member',
-          font: {
-            size: 16
+      y: { 
+        stacked: true,
+        beginAtZero: true,
+        max: 40,
+        ticks: {
+          stepSize: 10,
+          callback: function(value) {
+            return value + 'h';
           }
         }
       }
     },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top'
+      },
+      title: {
+        display: true,
+        text: 'Team Capacity Utilization by Member',
+        font: {
+          size: 16
+        }
+      }
+    },
+    layout: {
+      padding: {
+        left: 0,
+        right: 20,
+        top: 0,
+        bottom: 40
+      }
+    }
+  },
     plugins: [{ 
       id: 'thresholdLine', 
       beforeDraw: (chart) => { 
