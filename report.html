@@ -149,7 +149,6 @@
         <option value="next-week">Next Week</option>
         <option value="this-month">This Month</option>
       </select>
-    </div>
     <div class="list-selector">
       <label class="list-selector-label">
         <span class="list-icon">📋</span> List
@@ -159,7 +158,9 @@
         <button id="list-dropdown-toggle" class="list-dropdown-toggle">▼</button>
       </div>
       <div id="list-dropdown" class="list-dropdown" style="display: none;">
-        <!-- List options will be populated here -->
+        <div class="list-options">
+          <!-- List options will be populated here -->
+        </div>
       </div>
     </div>
   
@@ -198,8 +199,13 @@
       document.getElementById('debug-info').textContent = debugInfo;
     }
 
-  function populateListSelect(lists) {
+    function populateListSelect(lists) {
+  console.log("Populating list select with:", lists);
   var listOptions = document.querySelector('.list-options');
+  if (!listOptions) {
+    console.error("Could not find .list-options element");
+    return;
+  }
   listOptions.innerHTML = '';
   lists.forEach(function(list) {
     var option = document.createElement('div');
@@ -214,59 +220,64 @@
 }
 
 function setupListSelector() {
-  var dropdownToggle = document.getElementById('list-dropdown-toggle');
-  var dropdown = document.getElementById('list-dropdown');
-  var searchInput = document.getElementById('list-search');
-  var listSelectorContainer = document.querySelector('.list-selector-container');
+    console.log("Setting up list selector");
+    var dropdownToggle = document.getElementById('list-dropdown-toggle');
+    var dropdown = document.getElementById('list-dropdown');
+    var searchInput = document.getElementById('list-search');
+    var listSelectorContainer = document.querySelector('.list-selector-container');
 
-  dropdownToggle.addEventListener('click', function(event) {
-    event.stopPropagation();
-    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-  });
-
-  searchInput.addEventListener('input', function() {
-    var filter = this.value.toLowerCase();
-    var options = document.querySelectorAll('.list-option');
-    options.forEach(function(option) {
-      var text = option.textContent.toLowerCase();
-      option.style.display = text.includes(filter) ? '' : 'none';
-    });
-  });
-
-  // Close dropdown when clicking outside
-  document.addEventListener('click', function(event) {
-    if (!listSelectorContainer.contains(event.target)) {
-      dropdown.style.display = 'none';
+    if (!dropdownToggle) {
+        console.error("Dropdown toggle button not found");
+        return;
     }
-  });
+    if (!dropdown) {
+        console.error("Dropdown element not found");
+        return;
+    }
+    if (!searchInput) {
+        console.error("Search input not found");
+        return;
+    }
+    if (!listSelectorContainer) {
+        console.error("List selector container not found");
+        return;
+    }
 
-  // Prevent dropdown from closing when clicking inside
-  dropdown.addEventListener('click', function(event) {
-    event.stopPropagation();
-  });
+    dropdownToggle.addEventListener('click', function(event) {
+        console.log("Dropdown toggle clicked");
+        event.stopPropagation();
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    });
+
+    searchInput.addEventListener('input', function() {
+        console.log("Search input changed");
+        var filter = this.value.toLowerCase();
+        var options = document.querySelectorAll('.list-option');
+        options.forEach(function(option) {
+            var text = option.textContent.toLowerCase();
+            option.style.display = text.includes(filter) ? '' : 'none';
+        });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!listSelectorContainer.contains(event.target)) {
+            console.log("Clicked outside, closing dropdown");
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // Prevent dropdown from closing when clicking inside
+    dropdown.addEventListener('click', function(event) {
+        console.log("Clicked inside dropdown");
+        event.stopPropagation();
+    });
+
+    console.log("List selector setup complete");
 }
 
-t.render(function() {
-  return t.lists('id', 'name')
-    .then(function(lists) {
-      // Get card counts for each list
-      return Promise.all(lists.map(list => 
-        t.list(list.id, 'name', 'cards')
-          .then(listData => ({
-            ...list,
-            cardCount: listData.cards.length
-          }))
-      ));
-    })
-    .then(function(listsWithCounts) {
-      populateListSelect(listsWithCounts);
-      setupListSelector();
-      updateReport();
-    });
-});
-
     function updateReport() {
-  console.log("Starting updateReport function");
+      console.log("Updating report");
   var timePeriod = document.getElementById('time-period').value;
   var currentDate = new Date();
   var startDate, endDate;
