@@ -72,6 +72,9 @@
         <option value="this-month">This Month</option>
       </select>
     </div>
+    <select id="list-select" multiple>
+      <!-- Options will be populated dynamically -->
+    </select>
   <div id="chart-container">
     <canvas id="capacityChart"></canvas>
   </div>
@@ -111,6 +114,16 @@
       document.getElementById('debug-info').textContent = debugInfo;
     }
 
+  function populateListSelect(lists) {
+    var select = document.getElementById('list-select');
+    select.innerHTML = '';
+    lists.forEach(function(list) {
+      var option = document.createElement('option');
+      option.value = list.id;
+      option.text = list.name;
+      select.appendChild(option);
+    });
+  }
     function getStartOfWeek(date) {
       var diff = date.getDate() - date.getDay() + (date.getDay() === 0 ? -6 : 1);
       return new Date(date.setDate(diff));
@@ -160,12 +173,16 @@
 
   console.log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
 
+  // Get selected lists
+  var selectedLists = Array.from(document.getElementById('list-select').selectedOptions).map(option => option.value);
+
   Promise.all([
     t.board('id', 'name', 'members', 'labels'),
+    t.lists('id', 'name'),
     t.cards('all')
   ])
-  .then(function([board, cards]) {
-    console.log(`Board: ${board.name}, Members: ${board.members.length}, Labels: ${board.labels.length}`);
+  .then(function([board, lists, cards]) {
+    console.log(`Board: ${board.name}, Members: ${board.members.length}, Labels: ${board.labels.length}, Lists: ${lists.length}`);
     console.log(`Retrieved ${cards.length} cards`);
 
     var labelColors = {};
@@ -193,9 +210,9 @@
       }
 
       var card = cards[index];
-      console.log(`Processing card: ${card.name}, Due: ${card.due}`);
+      console.log(`Processing card: ${card.name}, Due: ${card.due}, List: ${card.idList}`);
 
-      if (isCardInDateRange(card, startDate, endDate)) {
+      if (shouldIncludeCard(card, startDate, endDate, selectedLists)) {
         t.get(card.id, 'shared', 'memberEfforts')
           .then(function(memberEfforts) {
             console.log(`Member efforts for card ${card.name}: ${JSON.stringify(memberEfforts)}`);
@@ -221,7 +238,7 @@
             processNextCard(index + 1);
           });
       } else {
-        console.log(`Card ${card.name} not in date range`);
+        console.log(`Card ${card.name} not included in report`);
         processNextCard(index + 1);
       }
     }
@@ -233,10 +250,23 @@
   });
 }
 
-function isCardInDateRange(card, startDate, endDate) {
+function shouldIncludeCard(card, startDate, endDate, includedLists) {
+  // Check if the card is in one of the included lists
+  if (!includedLists.includes(card.idList)) {
+    return false;
+  }
+
+  // Check if the card has a due date assigned
   if (!card.due) {
     return false;
   }
+
+  // Check if the card is not complete
+  if (card.dueComplete) {
+    return false;
+  }
+
+  // Check if the due date is within the specified range
   var cardDueDate = new Date(card.due);
   return cardDueDate >= startDate && cardDueDate <= endDate;
 }
@@ -448,8 +478,11 @@ function getColorForTrelloLabel(colorName) {
     document.getElementById('time-period').addEventListener('change', updateReport);
 
     t.render(function() {
-  // No need to call t.sizeTo() here anymore
-  updateReport();
+  return t.lists('id', 'name')
+    .then(function(lists) {
+      populateListSelect(lists);
+      updateReport();
+    });
 });
   </script>
 </body>
