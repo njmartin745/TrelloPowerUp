@@ -140,6 +140,7 @@
   </style>
 </head>
 <body>
+  <div id="error-message" style="color: red;"></div>
   <div id="report-container">
     <h2>Team Capacity Report</h2>
     <div id="filter-container">
@@ -211,7 +212,7 @@
         var option = document.createElement('div');
         option.className = 'list-option';
         option.innerHTML = `
-            <input type="checkbox" id="list-${list.id}" value="${list.id}">
+            <input type="checkbox" id="list-${list.id}" value="${list.id}" checked>
             <label for="list-${list.id}">${list.name} <span class="list-option-count">(${list.cardCount || 0})</span></label>
         `;
         listOptions.appendChild(option);
@@ -278,101 +279,123 @@ function updateReport() {
     var currentDate = new Date();
     var startDate, endDate;
 
-  switch(timePeriod) {
-    case 'this-week':
-      startDate = getStartOfWeek(currentDate);
-      endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 6);
-      break;
-    case 'next-week':
-      startDate = getStartOfWeek(new Date(currentDate.setDate(currentDate.getDate() + 7)));
-      endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 6);
-      break;
-    case 'this-month':
-      startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-      break;
-  }
-
-  console.log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
-
-  // Get selected lists
-  var selectedLists = getSelectedLists();
-  console.log("Selected lists:", selectedLists);
-
-  Promise.all([
-    t.board('id', 'name', 'members', 'labels'),
-    t.lists('id', 'name'),
-    t.cards('all')
-  ])
-  .then(function([board, lists, cards]) {
-    console.log(`Board: ${board.name}, Members: ${board.members.length}, Labels: ${board.labels.length}, Lists: ${lists.length}`);
-    console.log(`Retrieved ${cards.length} cards`);
-
-    var labelColors = {};
-    board.labels.forEach(label => {
-      labelColors[label.name] = label.color;
-    });
-
-    var memberWorkloads = {};
-    board.members.forEach(function(member) {
-      memberWorkloads[member.id] = {
-        id: member.id,
-        name: member.fullName,
-        workload: 0,
-        labels: {}
-      };
-    });
-
-    function processNextCard(index) {
-      if (index >= cards.length) {
-        console.log(`Processed all cards. Updating chart with ${Object.keys(memberWorkloads).length} members.`);
-        updateChart(memberWorkloads, labelColors);
-        updateTable(memberWorkloads);
-        updateSummary(memberWorkloads);
-        return;
-      }
-
-      var card = cards[index];
-      console.log(`Processing card: ${card.name}, Due: ${card.due}, List: ${card.idList}`);
-
-      if (shouldIncludeCard(card, startDate, endDate, selectedLists)) {
-        t.get(card.id, 'shared', 'memberEfforts')
-          .then(function(memberEfforts) {
-            console.log(`Member efforts for card ${card.name}: ${JSON.stringify(memberEfforts)}`);
-            if (memberEfforts) {
-              Object.entries(memberEfforts).forEach(([memberId, effort]) => {
-                if (memberWorkloads[memberId]) {
-                  memberWorkloads[memberId].workload += parseFloat(effort);
-                  card.labels.forEach(label => {
-                    if (!memberWorkloads[memberId].labels[label.name]) {
-                      memberWorkloads[memberId].labels[label.name] = 0;
-                    }
-                    memberWorkloads[memberId].labels[label.name] += parseFloat(effort) / card.labels.length;
-                  });
-                } else {
-                  console.log(`Warning: Member ${memberId} not found in board members.`);
-                }
-              });
-            }
-            processNextCard(index + 1);
-          })
-          .catch(function(error) {
-            console.error(`Error processing card ${card.name}: ${error}`);
-            processNextCard(index + 1);
-          });
-      } else {
-        console.log(`Card ${card.name} not included in report`);
-        processNextCard(index + 1);
-      }
+    switch(timePeriod) {
+        case 'this-week':
+            startDate = getStartOfWeek(currentDate);
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+            break;
+        case 'next-week':
+            startDate = getStartOfWeek(new Date(currentDate.setDate(currentDate.getDate() + 7)));
+            endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 6);
+            break;
+        case 'this-month':
+            startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            break;
     }
 
-    processNextCard(0);
-  })
-  .catch(function(error) {
-    console.error(`Error retrieving board data: ${error}`);
-  });
+    console.log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
+
+    var selectedLists = getSelectedLists();
+    console.log("Selected lists:", selectedLists);
+
+    Promise.all([
+        t.board('id', 'name', 'members', 'labels'),
+        t.lists('id', 'name'),
+        t.cards('all')
+    ])
+    .then(function([board, lists, cards]) {
+        console.log(`Board: ${board.name}, Members: ${board.members.length}, Labels: ${board.labels.length}, Lists: ${lists.length}`);
+        console.log(`Retrieved ${cards.length} cards`);
+
+        var labelColors = {};
+        board.labels.forEach(label => {
+            labelColors[label.name] = label.color;
+        });
+
+        var memberWorkloads = {};
+        board.members.forEach(function(member) {
+            memberWorkloads[member.id] = {
+                id: member.id,
+                name: member.fullName,
+                workload: 0,
+                labels: {}
+            };
+        });
+
+        function processNextCard(index) {
+            if (index >= cards.length) {
+                console.log(`Processed all cards. Updating chart with ${Object.keys(memberWorkloads).length} members.`);
+                updateChart(memberWorkloads, labelColors);
+                updateTable(memberWorkloads);
+                updateSummary(memberWorkloads);
+                return;
+            }
+
+            var card = cards[index];
+            console.log(`Processing card: ${card.name}, Due: ${card.due}, List: ${card.idList}`);
+
+            if (shouldIncludeCard(card, startDate, endDate, selectedLists)) {
+                t.get(card.id, 'shared', 'memberEfforts')
+                    .then(function(memberEfforts) {
+                        console.log(`Member efforts for card ${card.name}: ${JSON.stringify(memberEfforts)}`);
+                        if (memberEfforts) {
+                            Object.entries(memberEfforts).forEach(([memberId, effort]) => {
+                                if (memberWorkloads[memberId]) {
+                                    memberWorkloads[memberId].workload += parseFloat(effort);
+                                    card.labels.forEach(label => {
+                                        if (!memberWorkloads[memberId].labels[label.name]) {
+                                            memberWorkloads[memberId].labels[label.name] = 0;
+                                        }
+                                        memberWorkloads[memberId].labels[label.name] += parseFloat(effort) / card.labels.length;
+                                    });
+                                } else {
+                                    console.log(`Warning: Member ${memberId} not found in board members.`);
+                                }
+                            });
+                        }
+                        processNextCard(index + 1);
+                    })
+                    .catch(function(error) {
+                        console.error(`Error processing card ${card.name}: ${error}`);
+                        processNextCard(index + 1);
+                    });
+            } else {
+                console.log(`Card ${card.name} not included in report`);
+                processNextCard(index + 1);
+            }
+        }
+
+        processNextCard(0);
+    })
+    .catch(function(error) {
+        console.error("Error retrieving board data:", error);
+        // Display error message to the user
+        document.getElementById('error-message').textContent = "An error occurred while loading the report. Please try again.";
+    });
+}
+
+function shouldIncludeCard(card, startDate, endDate, selectedLists) {
+    // Include the card if its list is selected
+    if (!selectedLists.includes(card.idList)) {
+        return false;
+    }
+
+    // If the card has no due date, include it
+    if (!card.due) {
+        return true;
+    }
+
+    // If it has a due date, check if it's within range
+    var cardDueDate = new Date(card.due);
+    return cardDueDate >= startDate && cardDueDate <= endDate;
+}
+
+function getSelectedLists() {
+    var selectedOptions = document.querySelectorAll('.list-option input[type="checkbox"]:checked');
+    return Array.from(selectedOptions).map(option => option.value);
 }
 
 function shouldIncludeCard(card, startDate, endDate, includedLists) {
@@ -446,29 +469,38 @@ function aggregateMemberHours(memberHours) {
   return labelHoursMap;
 }
 
-function updateChart(memberWorkloads, labelColors) {
-  console.log("Starting updateChart function");
-  console.log("memberWorkloads:", memberWorkloads);
+function updateChart(memberWorkloads) {
+    console.log("Starting updateChart function");
+    console.log("memberWorkloads:", memberWorkloads);
 
-  var ctx = document.getElementById('capacityChart').getContext('2d');
-  
-  var members = Object.keys(memberWorkloads);
-  console.log("Members:", members);
+    var ctx = document.getElementById('capacityChart').getContext('2d');
+    
+    var members = Object.keys(memberWorkloads);
+    console.log("Members:", members);
 
-  var labels = Array.from(new Set(Object.values(memberWorkloads).flatMap(m => Object.keys(m.labels))));
-  console.log("Labels:", labels);
+    var labels = Array.from(new Set(Object.values(memberWorkloads).flatMap(m => Object.keys(m.labels))));
+    console.log("Labels:", labels);
 
-  var datasets = labels.map(label => ({
-    label: label,
-    data: members.map(memberId => memberWorkloads[memberId].labels[label] || 0),
-    backgroundColor: getColorForTrelloLabel(labelColors[label] || 'blue'),
-  }));
+    var datasets = labels.map(label => ({
+        label: label,
+        data: members.map(memberId => memberWorkloads[memberId].labels[label] || 0),
+        backgroundColor: getColorForTrelloLabel(label),
+    }));
 
-  console.log("Datasets:", datasets);
+    console.log("Datasets:", datasets);
 
-  if (window.capacityChart && typeof window.capacityChart.destroy === 'function') {
-    window.capacityChart.destroy();
-  }
+    if (chart) {
+        chart.destroy();
+    }
+
+    // If there's no data, display a message instead of an empty chart
+    if (datasets.length === 0) {
+        ctx.font = '20px Arial';
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available for the selected period and lists', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+    }
 
   try {
     window.capacityChart = new Chart(ctx, {
