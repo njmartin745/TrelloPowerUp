@@ -200,23 +200,22 @@
     }
 
     function populateListSelect(lists) {
-  console.log("Populating list select with:", lists);
-  var listOptions = document.querySelector('.list-options');
-  if (!listOptions) {
-    console.error("Could not find .list-options element");
-    return;
-  }
-  listOptions.innerHTML = '';
-  lists.forEach(function(list) {
-    var option = document.createElement('div');
-    option.className = 'list-option';
-    option.innerHTML = `
-      <input type="checkbox" id="list-${list.id}" value="${list.id}">
-      <span class="list-option-name">${list.name}</span>
-      <span class="list-option-count">${list.cardCount || 0}</span>
-    `;
-    listOptions.appendChild(option);
-  });
+    console.log("Populating list select with:", lists);
+    var listOptions = document.querySelector('.list-options');
+    if (!listOptions) {
+        console.error("Could not find .list-options element");
+        return;
+    }
+    listOptions.innerHTML = '';
+    lists.forEach(function(list) {
+        var option = document.createElement('div');
+        option.className = 'list-option';
+        option.innerHTML = `
+            <input type="checkbox" id="list-${list.id}" value="${list.id}">
+            <label for="list-${list.id}">${list.name} <span class="list-option-count">(${list.cardCount || 0})</span></label>
+        `;
+        listOptions.appendChild(option);
+    });
 }
 
 function setupListSelector() {
@@ -260,11 +259,8 @@ function setupListSelector() {
     });
 
     // Close dropdown when clicking outside
-    document.addEventListener('click', function(event) {
-        if (!listSelectorContainer.contains(event.target)) {
-            console.log("Clicked outside, closing dropdown");
-            dropdown.style.display = 'none';
-        }
+    document.querySelectorAll('.list-option input[type="checkbox"]').forEach(checkbox => {
+      checkbox.addEventListener('change', updateReport);
     });
 
     // Prevent dropdown from closing when clicking inside
@@ -276,11 +272,11 @@ function setupListSelector() {
     console.log("List selector setup complete");
 }
 
-    function updateReport() {
-      console.log("Updating report");
-  var timePeriod = document.getElementById('time-period').value;
-  var currentDate = new Date();
-  var startDate, endDate;
+function updateReport() {
+    console.log("Updating report");
+    var timePeriod = document.getElementById('time-period').value;
+    var currentDate = new Date();
+    var startDate, endDate;
 
   switch(timePeriod) {
     case 'this-week':
@@ -303,6 +299,7 @@ function setupListSelector() {
 
   // Get selected lists
   var selectedLists = getSelectedLists();
+  console.log("Selected lists:", selectedLists);
 
   Promise.all([
     t.board('id', 'name', 'members', 'labels'),
@@ -397,6 +394,11 @@ function shouldIncludeCard(card, startDate, endDate, includedLists) {
   // Check if the due date is within the specified range
   var cardDueDate = new Date(card.due);
   return cardDueDate >= startDate && cardDueDate <= endDate;
+}
+
+function getSelectedLists() {
+    var selectedOptions = document.querySelectorAll('.list-option input[type="checkbox"]:checked');
+    return Array.from(selectedOptions).map(option => option.value);
 }
 
 function getStartOfWeek(date) {
@@ -606,11 +608,21 @@ function getColorForTrelloLabel(colorName) {
     document.getElementById('time-period').addEventListener('change', updateReport);
 
     t.render(function() {
-  return t.lists('id', 'name')
-    .then(function(lists) {
-      populateListSelect(lists);
-      updateReport();
-    });
+    return t.lists('id', 'name')
+        .then(function(lists) {
+            return Promise.all(lists.map(list => 
+                t.list(list.id, 'name', 'cards')
+                    .then(listData => ({
+                        ...list,
+                        cardCount: listData.cards.length
+                    }))
+            ));
+        })
+        .then(function(listsWithCounts) {
+            populateListSelect(listsWithCounts);
+            setupListSelector();
+            updateReport();
+        });
 });
   </script>
 </body>
