@@ -61,61 +61,81 @@
     } 
     .list-selector {
       width: 300px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Noto Sans, Ubuntu, Droid Sans, Helvetica Neue, sans-serif;
+      margin-bottom: 10px;
     }
 
-    .list-selector-header {
-      font-weight: bold;
-      margin-bottom: 5px;
+    .list-selector-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .list-icon {
+      margin-right: 4px;
+    }
+
+    .list-selector-container {
+      position: relative;
+      display: flex;
+      align-items: center;
     }
 
     .list-selector-input {
-      display: flex;
-      border: 1px solid #ddd;
+      width: 100%;
+      padding: 8px 30px 8px 12px;
+      font-size: 14px;
+      border: 1px solid #dfe1e6;
       border-radius: 3px;
+      background-color: #fafbfc;
     }
 
-    .list-selector-input input {
-      flex-grow: 1;
-      border: none;
-      padding: 5px;
-    }
-
-    .list-selector-input button {
+    .list-dropdown-toggle {
+      position: absolute;
+      right: 8px;
       background: none;
       border: none;
+      font-size: 14px;
+      color: #5e6c84;
       cursor: pointer;
     }
 
     .list-dropdown {
-      border: 1px solid #ddd;
-      border-top: none;
-      max-height: 200px;
+      position: absolute;
+      width: 100%;
+      max-height: 300px;
       overflow-y: auto;
+      background-color: white;
+      border: 1px solid #dfe1e6;
+      border-radius: 3px;
+      box-shadow: 0 8px 16px -4px rgba(9, 30, 66, 0.25), 0 0 0 1px rgba(9, 30, 66, 0.08);
+      z-index: 1;
     }
 
     .list-option {
       display: flex;
       align-items: center;
-      padding: 5px;
+      padding: 8px 12px;
       cursor: pointer;
     }
 
     .list-option:hover {
-      background-color: #f0f0f0;
+      background-color: #f4f5f7;
     }
 
     .list-option input[type="checkbox"] {
-      margin-right: 10px;
+      margin-right: 8px;
     }
 
     .list-option-name {
       flex-grow: 1;
+      font-size: 14px;
     }
 
     .list-option-count {
-      color: #999;
-      font-size: 0.9em;
+      color: #5e6c84;
+      font-size: 12px;
     }
   </style>
 </head>
@@ -131,22 +151,17 @@
       </select>
     </div>
     <div class="list-selector">
-      <div class="list-selector-header">
+      <label class="list-selector-label">
         <span class="list-icon">📋</span> List
+      </label>
+      <div class="list-selector-container">
+        <input type="text" id="list-search" class="list-selector-input" placeholder="Search lists...">
+        <button id="list-dropdown-toggle" class="list-dropdown-toggle">▼</button>
       </div>
-      <div class="list-selector-input">
-        <input type="text" id="list-search" placeholder="Search lists...">
-        <button id="list-dropdown-toggle">▼</button>
-      </div>
-      <div class="list-dropdown" id="list-dropdown" style="display: none;">
-        <div class="list-options">
-          <!-- List options will be populated here -->
-        </div>
+      <div id="list-dropdown" class="list-dropdown" style="display: none;">
+        <!-- List options will be populated here -->
       </div>
     </div>
-  <div id="chart-container">
-    <canvas id="capacityChart"></canvas>
-  </div>
   
   
   
@@ -202,8 +217,10 @@ function setupListSelector() {
   var dropdownToggle = document.getElementById('list-dropdown-toggle');
   var dropdown = document.getElementById('list-dropdown');
   var searchInput = document.getElementById('list-search');
+  var listSelectorContainer = document.querySelector('.list-selector-container');
 
-  dropdownToggle.addEventListener('click', function() {
+  dropdownToggle.addEventListener('click', function(event) {
+    event.stopPropagation();
     dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
   });
 
@@ -218,9 +235,14 @@ function setupListSelector() {
 
   // Close dropdown when clicking outside
   document.addEventListener('click', function(event) {
-    if (!event.target.closest('.list-selector')) {
+    if (!listSelectorContainer.contains(event.target)) {
       dropdown.style.display = 'none';
     }
+  });
+
+  // Prevent dropdown from closing when clicking inside
+  dropdown.addEventListener('click', function(event) {
+    event.stopPropagation();
   });
 }
 
