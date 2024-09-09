@@ -372,8 +372,10 @@ function updateReport() {
     })
     .catch(function(error) {
         console.error("Error retrieving board data:", error);
-        // Display error message to the user
         document.getElementById('error-message').textContent = "An error occurred while loading the report. Please try again.";
+        updateChart({}, {}); // Pass empty objects to display "No data available" message
+        updateTable({});
+        updateSummary({});
     });
 }
 
@@ -469,7 +471,7 @@ function aggregateMemberHours(memberHours) {
   return labelHoursMap;
 }
 
-function updateChart(memberWorkloads) {
+function updateChart(memberWorkloads, labelColors) {
     console.log("Starting updateChart function");
     console.log("memberWorkloads:", memberWorkloads);
 
@@ -484,7 +486,7 @@ function updateChart(memberWorkloads) {
     var datasets = labels.map(label => ({
         label: label,
         data: members.map(memberId => memberWorkloads[memberId].labels[label] || 0),
-        backgroundColor: getColorForTrelloLabel(label),
+        backgroundColor: getColorForTrelloLabel(labelColors[label] || 'blue'),
     }));
 
     console.log("Datasets:", datasets);
@@ -493,113 +495,84 @@ function updateChart(memberWorkloads) {
         chart.destroy();
     }
 
-    // If there's no data, display a message instead of an empty chart
     if (datasets.length === 0) {
-        ctx.font = '20px Arial';
+        ctx.font = '16px Arial';
         ctx.fillStyle = 'black';
         ctx.textAlign = 'center';
         ctx.fillText('No data available for the selected period and lists', ctx.canvas.width / 2, ctx.canvas.height / 2);
         return;
     }
 
-  try {
-    window.capacityChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: members.map(memberId => memberWorkloads[memberId].name),
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { 
-            stacked: true,
-            grid: {
-              display: false
-            },
-            ticks: {
-              autoSkip: false,
-              maxRotation: 90,
-              minRotation: 90
-            }
-          },
-          y: { 
-            stacked: true,
-            beginAtZero: true,
-            max: 40,
-            ticks: {
-              stepSize: 10,
-              callback: function(value) {
-                return value + 'h';
-              }
-            }
-          }
+    chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: members.map(memberId => memberWorkloads[memberId].name),
+            datasets: datasets
         },
-        plugins: {
-          legend: {
-            display: false  // This line removes the legend
-          },
-          title: {
-            display: true,
-            text: 'Team Capacity Utilization by Member',
-            font: {
-              size: 16
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { 
+                    stacked: true,
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 90,
+                        minRotation: 90
+                    }
+                },
+                y: { 
+                    stacked: true,
+                    beginAtZero: true,
+                    max: 40,
+                    ticks: {
+                        stepSize: 10,
+                        callback: function(value) {
+                            return value + 'h';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                title: {
+                    display: true,
+                    text: 'Team Capacity Utilization by Member',
+                    font: {
+                        size: 16
+                    }
+                }
             }
-          },
-          tooltip: {
-            callbacks: {
-              title: function(context) {
-                return context[0].label;
-              },
-              label: function(context) {
-                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}h`;
-              }
-            }
-          }
-        }
-      },
-      plugins: [{ 
-        id: 'thresholdLine', 
-        beforeDraw: (chart) => { 
-          const ctx = chart.ctx; 
-          const yAxis = chart.scales.y; 
-          const thresholdValue = 32; 
-          const yPixel = yAxis.getPixelForValue(thresholdValue); 
-          ctx.save(); 
-          ctx.beginPath(); 
-          ctx.moveTo(chart.chartArea.left, yPixel); 
-          ctx.lineTo(chart.chartArea.right, yPixel); 
-          ctx.lineWidth = 2; 
-          ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; 
-          ctx.stroke(); 
-          ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
-          ctx.textAlign = 'left';
-          /*ctx.fillText('80% Capacity (32h)', chart.chartArea.left, yPixel - 5);*/
-          ctx.restore(); 
-        } 
-      }]
+        },
+        plugins: [{ 
+            id: 'thresholdLine', 
+            afterDraw: (chart) => { 
+                const ctx = chart.ctx; 
+                const yAxis = chart.scales.y; 
+                const thresholdValue = 32; 
+                const yPixel = yAxis.getPixelForValue(thresholdValue); 
+                ctx.save(); 
+                ctx.beginPath(); 
+                ctx.moveTo(chart.chartArea.left, yPixel); 
+                ctx.lineTo(chart.chartArea.right, yPixel); 
+                ctx.lineWidth = 2; 
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'; 
+                ctx.stroke(); 
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.textAlign = 'left';
+                ctx.fillText('80% Capacity (32h)', chart.chartArea.left, yPixel - 5);
+                ctx.restore(); 
+            } 
+        }]
     });
-    console.log("Chart rendered successfully");
-  } catch (error) {
-    console.error("Error rendering chart:", error);
-  }
-}
 
-function getColorForTrelloLabel(colorName) {
-  const colorMap = {
-    'green': 'rgba(97, 189, 79, 0.8)',
-    'yellow': 'rgba(242, 214, 0, 0.8)',
-    'orange': 'rgba(255, 159, 26, 0.8)',
-    'red': 'rgba(235, 90, 70, 0.8)',
-    'purple': 'rgba(131, 140, 199, 0.8)',
-    'blue': 'rgba(0, 121, 191, 0.8)',
-    'sky': 'rgba(0, 194, 224, 0.8)',
-    'lime': 'rgba(81, 232, 152, 0.8)',
-    'pink': 'rgba(255, 120, 203, 0.8)',
-    'black': 'rgba(73, 78, 92, 0.8)'
-  };
-  return colorMap[colorName] || 'rgba(0, 121, 191, 0.8)'; // Default to blue if color not found
+    console.log("Chart rendered successfully");
 }
 
 
@@ -616,25 +589,25 @@ function getColorForTrelloLabel(colorName) {
       });
     }
 
-    function updateSummary(labelHours) {
-  var totalCapacity = 0;
-  var totalWorkload = 0;
-  
-  Object.values(labelHours).forEach(label => {
-    Object.values(label.members).forEach(member => {
-      totalWorkload += member.hours;
-      totalCapacity += 40; // Assuming 40 hours capacity per member
-    });
-  });
+    function updateSummary(memberWorkloads) {
+    var totalCapacity = 0;
+    var totalWorkload = 0;
 
-  var totalUtilization = totalCapacity > 0 ? (totalWorkload / totalCapacity) * 100 : 0;
+    if (memberWorkloads && typeof memberWorkloads === 'object') {
+        Object.values(memberWorkloads).forEach(function(member) {
+            totalCapacity += member.capacity || 0;
+            totalWorkload += member.workload || 0;
+        });
+    }
 
-  var summaryContainer = document.getElementById('summary-container');
-  summaryContainer.innerHTML = `
-    <p><strong>Total Team Capacity:</strong> ${totalCapacity.toFixed(1)} hours</p>
-    <p><strong>Total Assigned Work:</strong> ${totalWorkload.toFixed(1)} hours</p>
-    <p><strong>Overall Utilization:</strong> ${totalUtilization.toFixed(1)}%</p>
-  `;
+    var totalUtilization = totalCapacity > 0 ? (totalWorkload / totalCapacity) * 100 : 0;
+
+    var summaryContainer = document.getElementById('summary-container');
+    summaryContainer.innerHTML = `
+        <p><strong>Total Team Capacity:</strong> ${totalCapacity.toFixed(1)} hours</p>
+        <p><strong>Total Assigned Work:</strong> ${totalWorkload.toFixed(1)} hours</p>
+        <p><strong>Overall Utilization:</strong> ${totalUtilization.toFixed(1)}%</p>
+    `;
 }
 
     document.getElementById('time-period').addEventListener('change', updateReport);
