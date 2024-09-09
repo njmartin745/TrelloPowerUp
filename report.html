@@ -59,6 +59,64 @@
       width: 100% !important;
       height: 400px !important;
     } 
+    .list-selector {
+      width: 300px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    .list-selector-header {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .list-selector-input {
+      display: flex;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
+
+    .list-selector-input input {
+      flex-grow: 1;
+      border: none;
+      padding: 5px;
+    }
+
+    .list-selector-input button {
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    .list-dropdown {
+      border: 1px solid #ddd;
+      border-top: none;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .list-option {
+      display: flex;
+      align-items: center;
+      padding: 5px;
+      cursor: pointer;
+    }
+
+    .list-option:hover {
+      background-color: #f0f0f0;
+    }
+
+    .list-option input[type="checkbox"] {
+      margin-right: 10px;
+    }
+
+    .list-option-name {
+      flex-grow: 1;
+    }
+
+    .list-option-count {
+      color: #999;
+      font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
@@ -72,9 +130,20 @@
         <option value="this-month">This Month</option>
       </select>
     </div>
-    <select id="list-select" multiple>
-      <!-- Options will be populated dynamically -->
-    </select>
+    <div class="list-selector">
+      <div class="list-selector-header">
+        <span class="list-icon">📋</span> List
+      </div>
+      <div class="list-selector-input">
+        <input type="text" id="list-search" placeholder="Search lists...">
+        <button id="list-dropdown-toggle">▼</button>
+      </div>
+      <div class="list-dropdown" id="list-dropdown" style="display: none;">
+        <div class="list-options">
+          <!-- List options will be populated here -->
+        </div>
+      </div>
+    </div>
   <div id="chart-container">
     <canvas id="capacityChart"></canvas>
   </div>
@@ -115,38 +184,64 @@
     }
 
   function populateListSelect(lists) {
-    var select = document.getElementById('list-select');
-    select.innerHTML = '';
-    lists.forEach(function(list) {
-      var option = document.createElement('option');
-      option.value = list.id;
-      option.text = list.name;
-      select.appendChild(option);
+  var listOptions = document.querySelector('.list-options');
+  listOptions.innerHTML = '';
+  lists.forEach(function(list) {
+    var option = document.createElement('div');
+    option.className = 'list-option';
+    option.innerHTML = `
+      <input type="checkbox" id="list-${list.id}" value="${list.id}">
+      <span class="list-option-name">${list.name}</span>
+      <span class="list-option-count">${list.cardCount || 0}</span>
+    `;
+    listOptions.appendChild(option);
+  });
+}
+
+function setupListSelector() {
+  var dropdownToggle = document.getElementById('list-dropdown-toggle');
+  var dropdown = document.getElementById('list-dropdown');
+  var searchInput = document.getElementById('list-search');
+
+  dropdownToggle.addEventListener('click', function() {
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+  });
+
+  searchInput.addEventListener('input', function() {
+    var filter = this.value.toLowerCase();
+    var options = document.querySelectorAll('.list-option');
+    options.forEach(function(option) {
+      var text = option.textContent.toLowerCase();
+      option.style.display = text.includes(filter) ? '' : 'none';
     });
-  }
-    function getStartOfWeek(date) {
-      var diff = date.getDate() - date.getDay() + (date.getDay() === 0 ? -6 : 1);
-      return new Date(date.setDate(diff));
-    }
+  });
 
-    function getStartOfMonth(date) {
-      return new Date(date.getFullYear(), date.getMonth(), 1);
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(event) {
+    if (!event.target.closest('.list-selector')) {
+      dropdown.style.display = 'none';
     }
+  });
+}
 
-    function getEndOfMonth(date) {
-      return new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    }
-
-    function isCardInDateRange(card, startDate, endDate) {
-      if (!card.due) {
-        log(`Card ${card.name} has no due date`);
-        return false;
-      }
-      var cardDueDate = new Date(card.due);
-      var result = cardDueDate >= startDate && cardDueDate <= endDate;
-      log(`Card ${card.name} due date: ${cardDueDate.toISOString()}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}, In range: ${result}`);
-      return result;
-    }
+t.render(function() {
+  return t.lists('id', 'name')
+    .then(function(lists) {
+      // Get card counts for each list
+      return Promise.all(lists.map(list => 
+        t.list(list.id, 'name', 'cards')
+          .then(listData => ({
+            ...list,
+            cardCount: listData.cards.length
+          }))
+      ));
+    })
+    .then(function(listsWithCounts) {
+      populateListSelect(listsWithCounts);
+      setupListSelector();
+      updateReport();
+    });
+});
 
     function updateReport() {
   console.log("Starting updateReport function");
@@ -174,7 +269,7 @@
   console.log(`Time period: ${timePeriod}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
 
   // Get selected lists
-  var selectedLists = Array.from(document.getElementById('list-select').selectedOptions).map(option => option.value);
+  var selectedLists = getSelectedLists();
 
   Promise.all([
     t.board('id', 'name', 'members', 'labels'),
